@@ -1,0 +1,147 @@
+@extends('layouts.app')
+
+@section('content')
+<div class="container">
+    <div class="row">
+        <!-- Debtors Aging Cards -->
+        <div class="col-lg-3 col-sm-6">
+            <div class="card-box bg-gold card-clickable" style="border-radius: 5px;" onclick="window.location='{{ route('collection.index', ['filter' => 'less_than_30']) }}'">
+                <div class="inner">
+                    <h5> KES {{ number_format($metrics['balanceLessThan30'], 2) }} </h5>
+                    <p>  < 30 Days </p>
+                </div>
+                <div class="icon">
+                    <i class="fa fa-calendar-day" aria-hidden="true"></i>
+                </div>
+                <a href="#" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-sm-6">
+            <div class="card-box bg-blue card-clickable" style="border-radius: 5px;" onclick="window.location='{{ route('collection.index', ['filter' => '30_to_60']) }}'">
+                <div class="inner">
+                    <h5> KES {{ number_format($metrics['balance30To60'], 2) }} </h5>
+                    <p>  30-60 Days </p>
+                </div>
+                <div class="icon">
+                    <i class="fa fa-calendar-alt" aria-hidden="true"></i>
+                </div>
+                <a href="#" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-sm-6">
+            <div class="card-box bg-red card-clickable" style="border-radius: 5px;" onclick="window.location='{{ route('collection.index', ['filter' => '60_to_90']) }}'">
+                <div class="inner">
+                    <h5> KES {{ number_format($metrics['balance60To90'], 2) }} </h5>
+                    <p>  60-90 Days </p>
+                </div>
+                <div class="icon">
+                    <i class="fa fa-calendar-check" aria-hidden="true"></i>
+                </div>
+                <a href="#" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-sm-6">
+            <div class="card-box bg-purple card-clickable" style="border-radius: 5px;" onclick="window.location='{{ route('collection.index', ['filter' => 'more_than_90']) }}'">
+                <div class="inner">
+                    <h5> KES {{ number_format($metrics['balanceMoreThan90'], 2) }} </h5>
+                    <p>  > 90 Days </p>
+                </div>
+                <div class="icon">
+                    <i class="fa fa-hourglass-end" aria-hidden="true"></i>
+                </div>
+                <a href="#" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card card-danger mt-4">
+        <div class="card-header">
+            <div class="row">
+                <div class="col-md-6 d-flex align-items-center">
+                    <h4 class="card-title">Debtors List</h4>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive" style="overflow-x: auto; overflow-y: auto; max-width: 970px;">
+                <table id="myTable" class="table table-striped rounded-top" style="width: auto; font-size: 12px;">
+                    <thead style="white-space: nowrap;">
+                        <tr>
+                            <th>File No.</th>
+                            <th>Buss Date</th>
+                            <th>Name</th>
+                            <th>Policy Type</th>
+                            <th>Start Date</th>
+                            <th>End Date</th> 
+                            <th>Reg.No</th>
+                            <th>Gross Premium</th>
+                            <th>Paid Amount</th>
+                            <th>Due Amount</th>
+                            <th>Aging Band</th> <!-- New Column for Aging Band -->
+                        </tr>
+                    </thead>
+                    <tbody style="white-space: nowrap;">
+                        @foreach($filteredPolicies as $policy)
+                        <tr>
+                            <td>{{ $policy->fileno }}</td>
+                            <td>{{ \Carbon\Carbon::parse($policy->buss_date)->format('Y-m-d') }}</td>
+                            <td>{{ $policy->customer_name }}</td>
+                            <td>{{ $policy->policy_type_name }}</td>
+                            <td>{{ \Carbon\Carbon::parse($policy->start_date)->format('Y-m-d') }}</td>
+                            <td>{{ \Carbon\Carbon::parse($policy->end_date)->format('Y-m-d') }}</td> 
+                            <td>{{ $policy->reg_no }}</td>
+                            <td>{{ number_format($policy->gross_premium, 2) }}</td>
+                            <td>{{ number_format($policy->paid_amount, 2) }}</td>
+                            <td>{{ number_format($policy->balance, 2) }}</td> <!-- Due Amount -->
+                            <td>{{ $policy->aging_band }}</td> <!-- Aging Band -->
+                        </tr>
+                        @endforeach
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th>File No.</th>
+                            <th>Buss Date</th>
+                            <th>Name</th>
+                            <th>Policy Type</th>
+                            <th>Start Date</th>
+                            <th>End Date</th> 
+                            <th>Reg.No</th>
+                            <th>Gross Premium</th>
+                            <th>Paid Amount</th>
+                            <th>Due Amount</th>
+                            <th>Aging Band</th> <!-- New Column for Aging Band -->
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://cdn.datatables.net/2.1.4/css/dataTables.dataTables.css" />
+<script src="https://cdn.datatables.net/2.1.4/js/dataTables.js"></script>
+
+<script>
+function confirmDelete() {
+    return confirm('Are you sure you want to delete this record?');
+}
+</script>
+
+<style>
+.card-clickable {
+    cursor: pointer;
+    transition: transform 0.3s ease-in-out;
+}
+
+.card-clickable:hover {
+    transform: scale(1.05);
+}
+
+.card-clickable:active {
+    transform: scale(0.95);
+}
+</style>
+@endsection
