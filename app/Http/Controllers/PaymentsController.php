@@ -9,7 +9,11 @@ use App\Models\Receipt;
 use App\Models\Allocation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Support\Facades\Log; // Import the Log facade
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\CustomersExport;
+use App\Exports\PaymentsExport;
+use PDF; // Make sure to use PDF class for PDF exports
 class PaymentsController extends Controller
 {
     // Display a list of payments
@@ -309,6 +313,127 @@ public function handleMpesaCallback(Request $request)
     return response()->json(['status' => 'success', 'message' => 'Callback received successfully']);
 }
 
+public function unallocateAll($id)
+{
+    DB::beginTransaction();
+
+    try {
+        $payment = Payment::findOrFail($id);
+        \Log::info('Processing Payment for unallocation:', ['payment_id' => $id]);
+
+        $allocations = $payment->allocations;
+
+        if ($allocations->isEmpty()) {
+            \Log::warning('No allocations found for payment ID: ' . $id);
+            return redirect()->back()->with('info', 'No allocations found to revert for this payment.');
+        }
+
+        // Track total amount to revert in the payment record
+        $totalRevertedAmount = 0;
+
+        foreach ($allocations as $allocation) {
+            $policy = $allocation->policy;
+
+            if (!$policy) {
+                \Log::warning('Policy not found for allocation:', $allocation->toArray());
+                continue;
+            }
+
+            // Update the policy amounts
+            $policy->paid_amount -= $allocation->allocation_amount;
+            $policy->outstanding_amount += $allocation->allocation_amount;
+            $policy->balance = $policy->gross_premium - $policy->paid_amount;
+            $policy->save();
+
+            \Log::info('Updated Policy:', $policy->toArray());
+
+            // Accumulate the allocation amount for the payment update
+            $totalRevertedAmount += $allocation->allocation_amount;
+        }
+
+        // Delete all allocations related to the payment
+        $deletedRows = Allocation::where('payment_id', $id)->delete();
+        \Log::info('Deleted Allocations:', ['payment_id' => $id, 'rows_deleted' => $deletedRows]);
+
+        // Update payment status and amounts back to unallocated
+        $receipt = $payment->receipts->first(); // Assuming there's at least one receipt
+        $receipt->allocated_amount -= $totalRevertedAmount;
+        $receipt->remaining_amount += $totalRevertedAmount;
+        $receipt->save();
+
+        // Optional: Update the payment status if there’s a status field
+        // $payment->status = 'unallocated'; // Uncomment if payment has a status field
+        $payment->save(); // If modifying any additional fields on Payment
+
+        DB::commit();
+        return redirect()->back()->with('success', 'All allocations reverted successfully.');
+    } catch (\Exception $e) {
+        DB::rollBack();
+        \Log::error('Error during unallocation:', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+        return redirect()->back()->with('error', 'An error occurred while unallocating payments. Please try again.');
+    }
+}
+
+ 
+
+public function printReceipt($id)
+{
+    // Eager load the customer and receipts relationships in one query
+    $payment = Payment::with(['customer', 'receipts'])->findOrFail($id);
     
+    //dd($payment->customer); 
+    // Debugging: Log payment details
+    Log::info('Payment Details:', [
+        'payment_id' => $payment->id,
+        'payment_amount' => $payment->payment_amount,
+        'customer' => $payment->customer->first_name,
+        'customer_name' => $payment->customer ? $payment->customer->customer_name : 'N/A',
+        'receipts' => $payment->receipts,
+    ]);
+    
+    // Check if receipts exist
+    if ($payment->receipts->isEmpty()) {
+        Log::error('No receipts found for payment:', ['payment_id' => $id]);
+        return redirect()->back()->with('error', 'No receipts found for this payment.');
+    }
+
+    // Prepare the data needed for the receipt view
+    $data = [
+        'payment' => $payment,
+    ];
+
+    // Load the view and generate the PDF
+    $pdf = PDF::loadView('receipts.print', $data);
+
+    // Download the PDF
+    return $pdf->download('receipt_' . $payment->receipts->first()->receipt_number . '.pdf');
+}
+
+public function exportPdf()
+{
+    $payments = Payment::with(['receipts', 'customer'])->get(); // Include receipts and customer relationships
+
+    // Prepare the data needed for the receipt view
+    $data = [
+        'payments' => $payments,
+    ];
+
+    // Load the view and generate the PDF
+    $pdf = PDF::loadView('payments.pdf', $data);
+    
+    // Download the PDF
+    return $pdf->download('payments.pdf');
+}
+
+
+
+public function exportExcel()
+{
+    return Excel::download(new PaymentsExport, 'payments.xlsx');
+}
+
 
 }

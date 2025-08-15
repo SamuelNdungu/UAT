@@ -41,7 +41,8 @@
         <link rel="stylesheet" href="//cdn.datatables.net/2.1.3/css/dataTables.dataTables.min.css">
         <link rel="stylesheet" href="//cdn.datatables.net/2.1.4/css/dataTables.dataTables.min.css">
         <link rel="stylesheet" href="https://cdn.datatables.net/2.1.4/css/dataTables.dataTables.css" />
-</head>
+        <link href="{{ asset('assets/css/dashboard.css') }}" rel="stylesheet">
+    </head>
     <body class="  bg-gray-400">
 
 
@@ -63,7 +64,8 @@
                 <li class="nav-item dropdown">
                 @if(Auth::check())
                         <a id="navbarDropdown" class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" v-pre>
-                            <img src="https://github.com/mdo.png" alt="" width="32" height="32" class="rounded-circle me-2">                    
+                        <img src="{{ asset('img/profile.png') }}" alt="Profile Picture" width="35" height="35" class="rounded-circle me-2 border-white shadow" style="border-width: 2px; border-color: white; border-style: solid;">
+   
                             {{ Auth::user()->name }}
                         </a>
                     @else
@@ -93,47 +95,50 @@
         <div id="layoutSidenav">
             <div id="layoutSidenav_nav">
                 <nav class="sb-sidenav accordion sb-sidenav-dark" id="sidenavAccordion">
-                    <div class="sb-sidenav-menu">
-                        <div class="nav">  
-
-                                <a class="nav-link"  href="{{ route('home') }}">
-                                    <div class="sb-nav-link-icon"><i class="fas fa-tachometer-alt"></i></div>
-                                    Dashboard</a> 
-                                <a class="nav-link" href="{{ route('customers.index') }}" >
-                                    <div class="sb-nav-link-icon"><i class="fas fa-users"></i></div>
-                                    Customers</a>
-
-                                <a class="nav-link" href="{{ route('leads.index') }}">
-                                    <div class="sb-nav-link-icon"><i class="fas fa-user-tag"></i></div>
-                                    Leads
-                                </a>
-                                <a class="nav-link" href="{{ route('policies.index')  }}">
-                                    <div class="sb-nav-link-icon"><i class="fas fa-file-contract"></i></div>
-                                    Policies
-                                </a>
-                                <a class="nav-link" href="{{ route('payments.index')  }}">                                
-                                    <div class="sb-nav-link-icon"><i class="fas fa-credit-card"></i></div>
-                                    Payments
-                                </a>
-                                <a class="nav-link" href="{{ route('collection.index')  }}">                                
-                                    <div class="sb-nav-link-icon"><i class="fas fa-credit-card"></i></div>
-                                    Collection
-                                </a>
-                               
-                                <a class="nav-link" href="{{ route('renewals.index') }}">
-                                <div class="sb-nav-link-icon"><i class="fas fa-file-contract"></i></div>
-                                    Renewals
-                                </a>
-                                <a class="nav-link" href="{{ route('claims.index') }}">
-                                    <div class="sb-nav-link-icon"><i class="fas fa-file-alt"></i></div>
-                                    Claims
-                                </a>
-                                <a class="nav-link" href="{{ route('reports.index') }}">
-                                    <div class="sb-nav-link-icon"><i class="fas fa-chart-line"></i></div>
-                                    Reports
-                                </a> 
-                        </div>
-                    </div>
+                <div class="sb-sidenav-menu">
+            <div class="nav">  
+                <a class="nav-link" href="{{ route('home') }}">
+                    <div class="sb-nav-link-icon"><i class="fas fa-tachometer-alt"></i></div>
+                    Dashboard
+                </a>
+                <a class="nav-link" href="{{ route('customers.index') }}">
+                    <div class="sb-nav-link-icon"><i class="fas fa-users"></i></div>
+                    Customers
+                </a>
+                <a class="nav-link" href="{{ route('leads.index') }}">
+                    <div class="sb-nav-link-icon"><i class="fas fa-funnel-dollar"></i></div>
+                    Leads
+                </a>  
+                <a class="nav-link" href="{{ route('policies.index') }}">
+                    <div class="sb-nav-link-icon"><i class="fas fa-file-signature"></i></div>
+                    Policies
+                </a>
+                <a class="nav-link" href="{{ route('payments.index') }}">
+                    <div class="sb-nav-link-icon"><i class="fas fa-money-bill-wave"></i></div>
+                    Payments
+                </a>
+                <a class="nav-link" href="{{ route('collection.index') }}">
+                    <div class="sb-nav-link-icon"><i class="fas fa-hand-holding-usd"></i></div>
+                    Collection
+                </a>
+                <a class="nav-link" href="{{ route('renewals.index') }}">
+                    <div class="sb-nav-link-icon"><i class="fas fa-calendar-alt"></i></div>
+                    Renewals
+                </a>
+                <a class="nav-link" href="{{ route('claims.index') }}">
+                    <div class="sb-nav-link-icon"><i class="fas fa-clipboard-list"></i></div>
+                    Claims
+                </a>
+                <a class="nav-link" href="{{ route('fees.index') }}">
+                    <div class="sb-nav-link-icon"><i class="fas fa-file-invoice"></i></div>
+                    Fees
+                </a>
+                <a class="nav-link" href="#">
+                     
+                    
+                </a>
+            </div>
+        </div>
                      
                     <div class="sb-sidenav-footer">
                         <div class="small">Power by:</div>
@@ -143,10 +148,11 @@
                     
                 </nav>
             </div>
-          
+            <div id="layoutSidenav_content">
             <main class="full-width px-4 ">
                 @yield('content')
             </main>
+            </div>
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
@@ -177,5 +183,25 @@
             $('#myTable').DataTable();
         } );
 </script>
+<script>
+
+document.getElementById('sidebarToggle').addEventListener('click', function() {
+    var sidenav = document.getElementById('layoutSidenav_nav');
+    var mainContent = document.querySelector('main');
+    
+    sidenav.classList.toggle('sidebar-collapsed');
+    sidenav.classList.toggle('sidebar-expanded');
+    
+    // Adjust main content width when sidebar is collapsed or expanded
+    if (sidenav.classList.contains('sidebar-collapsed')) {
+        mainContent.style.marginLeft = '80px'; /* Reduced margin when collapsed */
+    } else {
+        mainContent.style.marginLeft = '250px'; /* Full margin when expanded */
+    }
+});
+
+
+</script>
+
 </body>
 </html>

@@ -11,7 +11,7 @@ class Receipt extends Model
 
     protected $fillable = [
         'payment_id', 'receipt_date', 'receipt_number', 
-        'allocated_amount', 'remaining_amount', 'notes'
+        'allocated_amount', 'remaining_amount', 'notes','user_id',
     ];
 
     public function payment()

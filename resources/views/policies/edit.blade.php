@@ -83,7 +83,7 @@
                 <option value="35" {{ $policy->policy_type_id == 35 ? 'selected' : '' }}>Motor Private</option>
                 <option value="36" {{ $policy->policy_type_id == 36 ? 'selected' : '' }}>Motor Commercial</option>
                 <option value="37" {{ $policy->policy_type_id == 37 ? 'selected' : '' }}>MotorCycle</option>
-                <option value="4" {{ $policy->policy_type_id == 14 ? 'selected' : '' }}>Domestic Package</option>
+                <option value="14" {{ $policy->policy_type_id == 14 ? 'selected' : '' }}>Domestic Package</option>
                 <!-- Additional options -->
                 <option disabled>─────────────────</option>
                 @foreach($availablePolicyTypes as $policyTypeId => $policyTypeName)
@@ -196,12 +196,12 @@
 
             <div class="col-md-3 form-group">
                 <label for="chassisno">Chassis No.</label>
-                <input type="text" id="chassisno" name="chassisno" class="form-control @error('chassisno') is-invalid @enderror" value="{{ old('chassisno', $policy->chassisno) }}">
+                <input type="text" id="chassisno" name="chassisno" class="form-control @error('chassisno') is-invalid @enderror" value="{{ old('chassisno', $policy->chassisno) }}" oninput="this.value = this.value.toUpperCase()">
             </div>
 
             <div class="col-md-3 form-group">
                 <label for="engine_no">Engine No.</label>
-                <input type="text" id="engine_no" name="engine_no" class="form-control" value="{{ old('engine_no', $policy->engine_no) }}">
+                <input type="text" id="engine_no" name="engine_no" class="form-control" value="{{ old('engine_no', $policy->engine_no) }}" oninput="this.value = this.value.toUpperCase()">
             </div>
         </div>
     </div>
@@ -220,25 +220,41 @@
     <div class="row mt-3">
         <div class="col-md-3 form-group">
             <label for="sum_insured_display">Sum Insured</label>
-            <input type="text" id="sum_insured_display" class="form-control" value="{{ old('sum_insured', $policy->sum_insured) }}" oninput="syncHiddenFields('sum_insured')">
+            <input type="text" id="sum_insured_display" class="form-control" value="{{ old('sum_insured', $policy->sum_insured) }}" 
+                oninput="syncHiddenFields('sum_insured'); calculateFinancials()" 
+                onfocusout="formatInput(this)">
             <input type="hidden" id="sum_insured" name="sum_insured" value="{{ old('sum_insured', $policy->sum_insured) }}">
         </div>
 
         <div class="col-md-2 form-group">
+            <label for="premium_type">Premium Type</label>
+            <select id="premium_type" name="premium_type" class="form-control" onchange="togglePremiumFields()">
+                <option value="rate">Rate</option>
+                <option value="premium">Premium</option>
+            </select>
+        </div>
+
+        <div class="col-md-2 form-group">
             <label for="rate_display">Rate</label>
-            <input type="number" id="rate_display" class="form-control" value="{{ old('rate', $policy->rate) }}" oninput="syncHiddenFields('rate')">
+            <input type="text" id="rate_display" class="form-control" value="{{ old('rate', $policy->rate) }}" 
+                oninput="syncHiddenFields('rate'); calculateFinancials()" 
+                onfocusout="formatInput(this)">
             <input type="hidden" id="rate" name="rate" value="{{ old('rate', $policy->rate) }}">
         </div>
 
         <div class="col-md-3 form-group">
             <label for="premium_display">Premium <span class="text-danger">*</span></label>
-            <input type="text" id="premium_display" class="form-control" value="{{ old('premium', $policy->premium) }}" readonly>
+            <input type="text" id="premium_display" class="form-control" value="{{ old('premium', $policy->premium) }}" 
+                oninput="syncHiddenFields('premium'); calculateFinancials()" 
+                onfocusout="formatInput(this)">
             <input type="hidden" id="premium" name="premium" value="{{ old('premium', $policy->premium) }}">
         </div>
 
         <div class="col-md-2 form-group">
-            <label for="c_rate_display">C. Rate</label>
-            <input type="number" id="c_rate_display" class="form-control" value="{{ old('c_rate', $policy->c_rate) }}" oninput="syncHiddenFields('c_rate')">
+            <label for="c_rate_display">Commission Rate</label>
+            <input type="text" id="c_rate_display" class="form-control" value="{{ old('c_rate', $policy->c_rate) }}" 
+                oninput="syncHiddenFields('c_rate'); calculateFinancials()" 
+                onfocusout="formatInput(this)">
             <input type="hidden" id="c_rate" name="c_rate" value="{{ old('c_rate', $policy->c_rate) }}">
         </div>
 
@@ -255,13 +271,7 @@
         </div>
 
         <div class="col-md-2 form-group">
-            <label for="s_duty_display">S. Duty</label>
-            <input type="text" id="s_duty_display" class="form-control" value="{{ old('s_duty', $policy->s_duty) }}" readonly>
-            <input type="hidden" id="s_duty" name="s_duty" value="{{ old('s_duty', $policy->s_duty) }}">
-        </div>
-
-        <div class="col-md-2 form-group">
-            <label for="t_levy_display">T. Levy</label>
+            <label for="t_levy_display">Training Levy</label>
             <input type="text" id="t_levy_display" class="form-control" value="{{ old('t_levy', $policy->t_levy) }}" readonly>
             <input type="hidden" id="t_levy" name="t_levy" value="{{ old('t_levy', $policy->t_levy) }}">
         </div>
@@ -273,27 +283,81 @@
         </div>
 
         <div class="col-md-2 form-group">
+            <label for="s_duty_display">Stamp Duty</label>
+            <input type="text" id="s_duty_display" class="form-control" value="{{ old('s_duty', $policy->s_duty) }}" 
+                oninput="syncHiddenFields('s_duty'); calculateFinancials()" 
+                onfocusout="formatInput(this)">
+            <input type="hidden" id="s_duty" name="s_duty" value="{{ old('s_duty', $policy->s_duty) }}">
+        </div>
+
+        <div class="col-md-2 form-group">
             <label for="policy_charge_display">Policy Charge</label>
-            <input type="text" id="policy_charge_display" class="form-control" value="{{ old('policy_charge', $policy->policy_charge) }}" readonly>
+            <input type="text" id="policy_charge_display" class="form-control" value="{{ old('policy_charge', $policy->policy_charge) }}" 
+                oninput="syncHiddenFields('policy_charge'); calculateFinancials()" 
+                onfocusout="formatInput(this)">
             <input type="hidden" id="policy_charge" name="policy_charge" value="{{ old('policy_charge', $policy->policy_charge) }}">
         </div>
 
         <div class="col-md-2 form-group">
+            <label for="pvt_display">PVT</label>
+            <input type="text" id="pvt_display" class="form-control" value="{{ old('pvt', $policy->pvt) }}" 
+                oninput="syncHiddenFields('pvt'); calculateFinancials()" 
+                onfocusout="formatInput(this)">
+            <input type="hidden" id="pvt" name="pvt" value="{{ old('pvt', $policy->pvt) }}">
+        </div>
+
+        <div class="col-md-2 form-group">
+            <label for="excess_display">Excess</label>
+            <input type="text" id="excess_display" class="form-control" value="{{ old('excess', $policy->excess) }}" 
+                oninput="syncHiddenFields('excess'); calculateFinancials()" 
+                onfocusout="formatInput(this)">
+            <input type="hidden" id="excess" name="excess" value="{{ old('excess', $policy->excess) }}">
+        </div>
+
+        <div class="col-md-2 form-group">
             <label for="other_charges_display">Other Charges</label>
-            <input type="text" id="other_charges_display" class="form-control" value="{{ old('other_charges', $policy->other_charges) }}" readonly>
+            <input type="text" id="other_charges_display" class="form-control" value="{{ old('other_charges', $policy->other_charges) }}" 
+                oninput="syncHiddenFields('other_charges'); calculateFinancials()" 
+                onfocusout="formatInput(this)">
             <input type="hidden" id="other_charges" name="other_charges" value="{{ old('other_charges', $policy->other_charges) }}">
         </div>
 
-        <div class="col-md-3 form-group">
+        <div class="col-md-2 form-group">
             <label for="gross_premium_display">Gross Premium</label>
             <input type="text" id="gross_premium_display" class="form-control" value="{{ old('gross_premium', $policy->gross_premium) }}" readonly>
             <input type="hidden" id="gross_premium" name="gross_premium" value="{{ old('gross_premium', $policy->gross_premium) }}">
         </div>
 
-        <div class="col-md-3 form-group">
+        <div class="col-md-2 form-group">
             <label for="net_premium_display">Net Premium</label>
             <input type="text" id="net_premium_display" class="form-control" value="{{ old('net_premium', $policy->net_premium) }}" readonly>
             <input type="hidden" id="net_premium" name="net_premium" value="{{ old('net_premium', $policy->net_premium) }}">
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-md-2 form-group">
+            <label for="courtesy_car_display">Courtesy Car</label>
+            <input type="text" id="courtesy_car_display" class="form-control" value="{{ old('courtesy_car', $policy->courtesy_car) }}" 
+                oninput="syncHiddenFields('courtesy_car'); calculateFinancials()" 
+                onfocusout="formatInput(this)">
+            <input type="hidden" id="courtesy_car" name="courtesy_car" value="{{ old('courtesy_car', $policy->courtesy_car) }}">
+        </div>
+
+        <div class="col-md-2 form-group">
+            <label for="ppl_display">PPL</label>
+            <input type="text" id="ppl_display" class="form-control" value="{{ old('ppl', $policy->ppl) }}" 
+                oninput="syncHiddenFields('ppl'); calculateFinancials()" 
+                onfocusout="formatInput(this)">
+            <input type="hidden" id="ppl" name="ppl" value="{{ old('ppl', $policy->ppl) }}">
+        </div>
+
+        <div class="col-md-2 form-group">
+            <label for="road_rescue_display">Road Rescue</label>
+            <input type="text" id="road_rescue_display" class="form-control" value="{{ old('road_rescue', $policy->road_rescue) }}" 
+                oninput="syncHiddenFields('road_rescue'); calculateFinancials()" 
+                onfocusout="formatInput(this)">
+            <input type="hidden" id="road_rescue" name="road_rescue" value="{{ old('road_rescue', $policy->road_rescue) }}">
         </div>
     </div>
 
@@ -304,34 +368,58 @@
         <textarea id="cover_details" name="cover_details" class="form-control">{{ old('cover_details', $policy->cover_details) }}</textarea>
     </div>
 
-    <div class="row mt-4">    
-        <label for="Documents">Documents</label>
-        <div class="col-12">
-            <table class="table table-bordered">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Document Description</th>
-                        <th>Document</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>1</td>
-                        <td>
-                            <input type="text" id="document_description" name="document_description" class="form-control" placeholder="Enter description" value="{{ old('document_description', $policy->document_description) }}">
-                        </td>
-                        <td>
-                            <input type="file" id="upload_file" name="upload_file" class="form-control">
-                            @if($policy->documents)
-                                <small>Current file: <a href="{{ asset('storage/uploads/' . $policy->documents) }}" download>{{ $policy->documents }}</a></small>
-                            @endif
-                        </td>
-                    </tr>
-                </tbody>
-            </table>    
-        </div>                                              
+    <!-- Documents Section -->
+<div class="group-heading mt-3">Documents</div>
+<div class="row mt-4">
+    <div class="col-12">
+        <table class="table table-bordered" id="documentsTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Document Description</th>
+                    <th>Document</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if($documents)
+                    @foreach($documents as $key => $document)
+                        <tr>
+                            <td>{{ $key + 1 }}</td>
+                            <td>
+                                <input type="text" name="document_description[]" class="form-control" placeholder="Enter description" value="{{ $document['description'] }}">
+                            </td>
+                            <td>
+                                <input type="file" name="upload_file[]" class="form-control">
+                                @if($document['path'])
+                                    <a href="{{ asset('storage/' . $document['path']) }}" target="_blank">View Document</a>
+                                @endif
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-danger" onclick="removeDocumentRow(this)">Remove</button>
+                            </td>
+                        </tr>
+                    @endforeach
+                @endif
+                <tr id="documentRowTemplate" style="display: none;">
+                    <td>1</td>
+                    <td>
+                        <input type="text" name="document_description[]" class="form-control" placeholder="Enter description">
+                    </td>
+                    <td>
+                        <input type="file" name="upload_file[]" class="form-control">
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-danger" onclick="removeDocumentRow(this)">Remove</button>
+                    </td>
+                </tr>
+                <!-- Additional rows will be added here -->
+            </tbody>
+        </table>
+        <button type="button" class="btn btn-secondary" onclick="addDocumentRow()">Add Document</button>
     </div>
+</div>
+
 
     <!-- Submit Button -->
     <div class="form-group mt-4">
@@ -445,33 +533,143 @@
         }
     }
 
-    // Calculate financial details based on inputs
+    // Format number with commas
+    function formatNumberWithCommas(number) {
+        return number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Format input field on blur
+function formatInput(input) {
+    // Remove any non-numeric characters except decimal and remove commas
+    let value = input.value.replace(/,/g, '').replace(/[^\d.]/g, '');
+    if (value) {
+        let number = parseFloat(value);
+        if (!isNaN(number)) {
+            let formattedValue = formatNumberWithCommas(number);
+            input.value = formattedValue;
+        } else {
+            input.value = '0.00';
+        }
+    } else {
+        input.value = '0.00';
+    }
+}
+    
+
+    // Allow only numbers and decimal point
+    function validateNumericInput(event) {
+        // Allow: backspace, delete, tab, escape, enter, decimal point
+        if (event.key === '.' && event.target.value.includes('.')) {
+            event.preventDefault();
+            return;
+        }
+        
+        if (event.key === '.' || event.key === 'Backspace' || event.key === 'Delete' || 
+            event.key === 'Tab' || event.key === 'Escape' || event.key === 'Enter' ||
+            // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+            (event.key === 'a' && event.ctrlKey === true) ||
+            (event.key === 'c' && event.ctrlKey === true) ||
+            (event.key === 'v' && event.ctrlKey === true) ||
+            (event.key === 'x' && event.ctrlKey === true)) {
+            return;
+        }
+
+        // Ensure that it is a number and stop the keypress if not
+        if ((event.key < '0' || event.key > '9') && event.key !== '.') {
+            event.preventDefault();
+        }
+    }
+
+    // Handle paste event to only allow numbers
+    function handlePaste(event) {
+        const clipboardData = event.clipboardData || window.clipboardData;
+        const pastedData = clipboardData.getData('Text');
+        
+        if (!/^\d*\.?\d*$/.test(pastedData)) {
+            event.preventDefault();
+        }
+    }
+
+    // Add event listeners to all numeric input fields
+    document.addEventListener('DOMContentLoaded', function() {
+        const numericFields = [
+            'sum_insured_display',
+            'rate_display',
+            'premium_display',
+            'c_rate_display',
+            'policy_charge_display',
+            'pvt_display',
+            'excess_display',
+            'other_charges_display',
+            'courtesy_car_display',
+            'ppl_display',
+            'road_rescue_display',
+            's_duty_display'
+        ];
+
+        numericFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.addEventListener('keypress', validateNumericInput);
+                field.addEventListener('paste', handlePaste);
+                // Prevent dropping of text
+                field.addEventListener('drop', e => e.preventDefault());
+            }
+        });
+    });
+
+    // Sync hidden fields with display fields
+function syncHiddenFields(field) {
+    let displayField = document.getElementById(`${field}_display`);
+    let hiddenField = document.getElementById(field);
+    let value = parseFloat(displayField.value.replace(/,/g, ''));
+    if (isNaN(value)) value = 0.00;
+    hiddenField.value = value.toFixed(2);
+    calculateFinancials();
+}
+
+    // Calculate financials based on input fields
     function calculateFinancials() {
-        let sumInsured = parseFloat(document.getElementById('sum_insured_display').value.replace(/,/g, '')) || 0.00;
-        let rate = parseFloat(document.getElementById('rate_display').value) || 0;
-        let c_rate = parseFloat(document.getElementById('c_rate_display').value) || 10;
+        const sumInsured = parseFloat(document.getElementById('sum_insured_display').value.replace(/,/g, '')) || 0.00;
+        const rate = parseFloat(document.getElementById('rate_display').value.replace(/,/g, '')) || 0;
+        const premiumType = document.getElementById('premium_type').value;
+        let premium;
 
-        let rateDecimal = rate / 100;
-        let c_rateDecimal = c_rate / 100;
+        // Calculate premium based on premium type
+        if (premiumType === 'rate') {
+            premium = sumInsured * (rate / 100);
+            document.getElementById('premium_display').value = formatNumberWithCommas(premium);
+            document.getElementById('premium').value = premium.toFixed(2);
+        } else {
+            premium = parseFloat(document.getElementById('premium_display').value.replace(/,/g, '')) || 0.00;
+        }
 
-        let premium = sumInsured * rateDecimal;
-        let commission = premium * c_rateDecimal;
-        let wht = commission * 0.05;
-        let tLevy = premium * 0.002;
-        let pcfLevy = premium * 0.0025;
-        let policyCharge = 500.00;
-        let stampDuty = 40.00;
-        let grossPremium = premium + pcfLevy + tLevy + policyCharge + stampDuty;
-        let netPremium = grossPremium - (commission + policyCharge) - wht;
+        const c_rate = parseFloat(document.getElementById('c_rate_display').value.replace(/,/g, '')) || 10;
+        const otherCharges = parseFloat(document.getElementById('other_charges_display').value.replace(/,/g, '')) || 0.00;
+        const policyCharge = parseFloat(document.getElementById('policy_charge_display').value.replace(/,/g, '')) || 0.00;
+        const stampDuty = parseFloat(document.getElementById('s_duty_display').value.replace(/,/g, '')) || 0.00;
+        const pvt = parseFloat(document.getElementById('pvt_display').value.replace(/,/g, '')) || 0.00;
+        const excess = parseFloat(document.getElementById('excess_display').value.replace(/,/g, '')) || 0.00;
+        const courtesyCar = parseFloat(document.getElementById('courtesy_car_display').value.replace(/,/g, '')) || 0.00;
+        const ppl = parseFloat(document.getElementById('ppl_display').value.replace(/,/g, '')) || 0.00;
+        const roadRescue = parseFloat(document.getElementById('road_rescue_display').value.replace(/,/g, '')) || 0.00;
+
+        const c_rateDecimal = c_rate / 100;
+
+        const commission = premium * c_rateDecimal;
+        const wht = commission * 10.00 / 100;
+        const tLevy = premium * 0.20 / 100;
+        const pcfLevy = premium * 0.25 / 100;
+        const grossPremium = premium + pvt + excess + pcfLevy + tLevy + policyCharge + otherCharges + stampDuty + courtesyCar + ppl + roadRescue;
+        const netPremium = premium - commission + pvt + excess + pcfLevy + tLevy - policyCharge + otherCharges + stampDuty + courtesyCar + ppl + roadRescue;
 
         // Display formatted values with commas in the display fields
-        document.getElementById('premium_display').value = premium.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('commission_display').value = commission.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('wht_display').value = wht.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('t_levy_display').value = tLevy.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('pcf_levy_display').value = pcfLevy.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('gross_premium_display').value = grossPremium.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('net_premium_display').value = netPremium.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('commission_display').value = formatNumberWithCommas(commission);
+        document.getElementById('wht_display').value = formatNumberWithCommas(wht);
+        document.getElementById('t_levy_display').value = formatNumberWithCommas(tLevy);
+        document.getElementById('pcf_levy_display').value = formatNumberWithCommas(pcfLevy);
+        document.getElementById('gross_premium_display').value = formatNumberWithCommas(grossPremium);
+        document.getElementById('net_premium_display').value = formatNumberWithCommas(netPremium);
 
         // Set unformatted values in hidden fields for submission
         document.getElementById('premium').value = premium.toFixed(2);
@@ -483,20 +681,81 @@
         document.getElementById('net_premium').value = netPremium.toFixed(2);
     }
 
-    function syncHiddenFields(field) {
-        let displayField = document.getElementById(`${field}_display`);
-        let hiddenField = document.getElementById(field);
+    // Toggle premium fields based on selected premium type
+    function togglePremiumFields() {
+        const premiumType = document.getElementById('premium_type').value;
+        const rateField = document.getElementById('rate_display');
+        const premiumField = document.getElementById('premium_display');
 
-        // Remove commas and sync the hidden field
-        hiddenField.value = parseFloat(displayField.value.replace(/,/g, '')).toFixed(2);
-        
-        // Recalculate financials
+        if (premiumType === 'rate') {
+            rateField.disabled = false;
+            premiumField.readOnly = true;
+            calculatePremiumFromRate();
+        } else {
+            rateField.disabled = true;
+            premiumField.readOnly = false;
+            calculateRateFromPremium();
+        }
+    }
+
+    // Calculate premium from rate
+    function calculatePremiumFromRate() {
+        const sumInsured = parseFloat(document.getElementById('sum_insured_display').value.replace(/,/g, '')) || 0.00;
+        const rate = parseFloat(document.getElementById('rate_display').value.replace(/,/g, '')) || 0;
+        const premium = sumInsured * (rate / 100);
+
+        document.getElementById('premium_display').value = formatNumberWithCommas(premium);
+        document.getElementById('premium').value = premium.toFixed(2);
+
         calculateFinancials();
     }
 
-    // Format other charges on blur
-    function formatOtherCharges() {
-        // Implement formatting logic here...
+    // Calculate rate from premium
+function calculateRateFromPremium() {
+    const sumInsured = parseFloat(document.getElementById('sum_insured_display').value.replace(/,/g, '')) || 0.00;
+    const premium = parseFloat(document.getElementById('premium_display').value.replace(/,/g, '')) || 0.00;
+    let rate = 0.00;
+    if (sumInsured > 0) {
+        rate = (premium / sumInsured) * 100;
+    }
+    document.getElementById('rate_display').value = rate.toFixed(2);
+    document.getElementById('rate').value = rate.toFixed(2);
+
+    calculateFinancials();
+}
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        togglePremiumFields();
+        calculateFinancials();
+
+        // Add event listeners for rate and sum insured changes
+        document.getElementById('rate_display').addEventListener('input', calculatePremiumFromRate);
+        document.getElementById('sum_insured_display').addEventListener('input', calculatePremiumFromRate);
+    });
+</script>
+<script>
+    // Function to add a new document row
+    function addDocumentRow() {
+        const table = document.getElementById('documentsTable');
+        const templateRow = document.getElementById('documentRowTemplate');
+        const newRowIndex = table.tBodies[0].childElementCount + 1;
+
+        // Clone the template row
+        const newRow = templateRow.cloneNode(true);
+        newRow.style.display = '';
+
+        // Update the row index
+        newRow.children[0].textContent = newRowIndex;
+
+        // Add the new row to the table
+        table.tBodies[0].appendChild(newRow);
+    }
+
+    // Function to remove a document row
+    function removeDocumentRow(button) {
+        const row = button.parentNode.parentNode;
+        row.remove();
     }
 </script>
 

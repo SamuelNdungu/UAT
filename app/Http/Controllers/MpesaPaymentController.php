@@ -3,125 +3,203 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http; // Laravel HTTP client
-use App\Models\Payment; // Assuming you have a Payment model
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use App\Models\Payment;
 use Carbon\Carbon;
+use Exception;
 
 class MpesaPaymentController extends Controller
 {
-    private $consumerKey = "vjkvnAV8EZNTAWQ5rAt16OdWeks1PP3lJ3qS3cHdiGvtCBAa";
-    private $consumerSecret = "3zmVfeY3PhRLtA2I4VLk71DTihx4HE28EscrHvGOjlOod2GU3inBSR0011Qw5eU1";
-    private $BusinessShortCode = 'N/A';
-    private $Passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
+    private $config;
+    
+    public function __construct()
+    {
+        $this->config = [
+            'consumer_key' => config('mpesa.consumer_key'),
+            'consumer_secret' => config('mpesa.consumer_secret'),
+            'business_shortcode' => config('mpesa.business_shortcode'),
+            'passkey' => config('mpesa.passkey'),
+            'sandbox_url' => 'https://sandbox.safaricom.co.ke',
+            'live_url' => 'https://api.safaricom.co.ke',
+        ];
+    }
 
     public function initiateMpesaPayment(Request $request)
     {
-        // Step 1: Generate an access token
-        $access_token = $this->getAccessToken();
+        try {
+            $request->validate([
+                'phone' => 'required|regex:/^254[0-9]{9}$/',
+                'amount' => 'required|numeric|min:1',
+                'reference' => 'required|string',
+                'payment_date' => 'required|string'
+            ]);
 
-        if (!$access_token) {
-            return response()->json(['error' => 'Failed to authenticate with M-PESA'], 401);
+            $access_token = $this->getAccessToken();
+
+            if (!$access_token) {
+                Log::error('MPESA: Failed to get access token');
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Failed to authenticate with M-PESA'
+                ], 401);
+            }
+
+            // Create payment record before initiating STK Push
+            $payment = Payment::create([
+                'payment_amount' => $request->amount,
+                'phone_number' => $request->phone,
+                'reference' => $request->reference,
+                'payment_date' => $request->payment_date,
+                'status' => 'Pending'
+            ]);
+
+            $response = $this->sendStkPush($access_token, $request, $payment);
+
+            if (isset($response['ResponseCode']) && $response['ResponseCode'] == '0') {
+                // Update payment record with MPESA request details
+                $payment->update([
+                    'merchant_request_id' => $response['MerchantRequestID'],
+                    'checkout_request_id' => $response['CheckoutRequestID']
+                ]);
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Payment initiated successfully',
+                    'data' => $response
+                ]);
+            }
+
+            Log::error('MPESA STK Push failed', $response);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to initiate payment',
+                'data' => $response
+            ], 400);
+
+        } catch (Exception $e) {
+            Log::error('MPESA Payment Error: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'An error occurred while processing your request'
+            ], 500);
         }
-
-        // Step 2: Initiate STK Push
-        $response = $this->sendStkPush($access_token, $request);
-
-        return response()->json($response);
     }
 
-    public function getAccessToken()
+    private function getAccessToken()
     {
-        $consumerKey = config('mpesa.consumer_key');
-        $consumerSecret = config('mpesa.consumer_secret');
-        $credentials = base64_encode($consumerKey . ':' . $consumerSecret);
+        try {
+            $credentials = base64_encode(
+                $this->config['consumer_key'] . ':' . $this->config['consumer_secret']
+            );
 
-        // This URL should be the token URL, not the STK Push request URL
-        $ch = curl_init('https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials');
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Authorization: Basic ' . $credentials,
-            'Content-Type: application/json'
-        ]);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $response = curl_exec($ch);
-        curl_close($ch);
+            $response = Http::withHeaders([
+                'Authorization' => 'Basic ' . $credentials,
+            ])->get($this->config['sandbox_url'] . '/oauth/v1/generate?grant_type=client_credentials');
 
-        $data = json_decode($response);
-        if (isset($data->access_token)) {
-            return $data->access_token;
-        } else {
+            if ($response->successful()) {
+                return $response->json()['access_token'];
+            }
+
+            Log::error('MPESA Auth Error:', $response->json());
+            return null;
+
+        } catch (Exception $e) {
+            Log::error('MPESA Auth Exception: ' . $e->getMessage());
             return null;
         }
     }
 
-    public function sendStkPush($access_token, Request $request)
+    private function sendStkPush($access_token, Request $request, Payment $payment)
     {
-        $url = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest';
-        $headers = [
-            'Authorization: Bearer ' . $access_token,
-            'Content-Type: application/json',
-        ];
+        try {
+            
+            $timestamp = date('YmdHis');
+            $password = base64_encode(
+                $this->config['business_shortcode'] . 
+                $this->config['passkey'] . 
+                $timestamp
+            );
 
-        $body = json_encode([
-            "BusinessShortCode" => 174379,
-            "Password" => base64_encode(174379 . $this->Passkey . date('YmdHis')),
-            "Timestamp" => date('YmdHis'),
-            "TransactionType" => "CustomerPayBillOnline",
-            "Amount" => 1,
-            "PartyA" => $request->input('phone'), // Dynamic input
-            "PartyB" => 174379,
-            "PhoneNumber" => $request->input('phone'), // Dynamic input
-            "CallBackURL" => "https://mydomain.com/path", // Modify with actual callback URL
-            "AccountReference" => "BimaConnect",
-            "TransactionDesc" => "Payment of X"
-        ]);
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $access_token,
+                'Content-Type' => 'application/json',
 
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $response = curl_exec($ch);
-        curl_close($ch);
+            ])->post($this->config['sandbox_url'] . '/mpesa/stkpush/v1/processrequest', [
+                'BusinessShortCode' => $this->config['business_shortcode'],
+                'Password' => $password,
+                'Timestamp' => $timestamp,
+                'TransactionType' => 'CustomerPayBillOnline',
+                'Amount' => $request->amount,
+                'PartyA' => $request->phone,
+                'PartyB' => $this->config['business_shortcode'],
+                'PhoneNumber' => $request->phone,
+                'CallBackURL' => route('mpesa.callback'),
+                'AccountReference' => $request->reference,
+                'TransactionDesc' => 'Payment for ' . $request->reference
+            ]);
+         dd ($response);
+            return $response->json();
 
-        return json_decode($response, true);
+        } catch (Exception $e) {
+            dd (" catch STKPush test");
+            Log::error('MPESA STK Push Exception: ' . $e->getMessage());
+            return [
+                'ResponseCode' => '1',
+                'ResponseDescription' => 'Failed to initiate STK push'
+            ];
+        }
     }
 
     public function handleMpesaCallback(Request $request)
     {
-        $data = json_decode($request->getContent()); // Get the JSON payload sent by M-PESA
+        try {
+            Log::info('MPESA Callback Received:', $request->all());
+            
+            $callback = $request->input('Body.stkCallback');
+            $resultCode = $callback['ResultCode'];
+            $merchantRequestId = $callback['MerchantRequestID'];
+            
+            $payment = Payment::where('merchant_request_id', $merchantRequestId)->first();
+            
+            if (!$payment) {
+                Log::error('MPESA: Payment record not found for MerchantRequestID: ' . $merchantRequestId);
+                return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
+            }
 
-        \Log::info('M-PESA Callback Data:', (array)$data);
+            if ($resultCode == 0) {
+                $metadata = collect($callback['CallbackMetadata']['Item'])
+                    ->keyBy(function ($item) {
+                        return $item['Name'];
+                    });
 
-        // Assuming $data contains 'ResultCode' and 'ResultDesc' for simplification
-        $resultCode = $data->Body->stkCallback->ResultCode;
-        $resultDesc = $data->Body->stkCallback->ResultDesc;
-        $merchantRequestId = $data->Body->stkCallback->MerchantRequestID;
-        $checkoutRequestId = $data->Body->stkCallback->CheckoutRequestID;
-        $amount = $data->Body->stkCallback->CallbackMetadata->Item[0]->Value;
-        $mpesaReceiptNumber = $data->Body->stkCallback->CallbackMetadata->Item[1]->Value;
-        $transactionDate = $data->Body->stkCallback->CallbackMetadata->Item[3]->Value;
-        $phoneNumber = $data->Body->stkCallback->CallbackMetadata->Item[4]->Value;
+                $payment->update([
+                    'status' => 'Completed',
+                    'mpesa_receipt_number' => $metadata['MpesaReceiptNumber']['Value'],
+                    'transaction_date' => Carbon::createFromFormat(
+                        'YmdHis',
+                        $metadata['TransactionDate']['Value']
+                    ),
+                    'phone_number' => $metadata['PhoneNumber']['Value']
+                ]);
 
-        // Find the payment or order using the MerchantRequestID or CheckoutRequestID
-        $payment = Payment::where('merchant_request_id', $merchantRequestId)->first();
+                // Trigger any success events or notifications here
+                event(new MpesaPaymentSuccessful($payment));
+            } else {
+                $payment->update([
+                    'status' => 'Failed',
+                    'failure_reason' => $callback['ResultDesc']
+                ]);
 
-        if ($resultCode == 0) {
-            // Transaction was successful
-            $payment->update([
-                'status' => 'Completed',
-                'mpesa_receipt_number' => $mpesaReceiptNumber,
-                'transaction_date' => Carbon::createFromFormat('YmdHis', $transactionDate),
-                'phone_number' => $phoneNumber
-            ]);
-        } else {
-            // Transaction failed
-            $payment->update([
-                'status' => 'Failed',
-                'failure_reason' => $resultDesc
-            ]);
+                // Trigger any failure events or notifications here
+                event(new MpesaPaymentFailed($payment));
+            }
+
+            return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
+
+        } catch (Exception $e) {
+            Log::error('MPESA Callback Error: ' . $e->getMessage());
+            return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
         }
-
-        // Always respond to M-PESA
-        return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Confirmation received successfully']);
     }
 }

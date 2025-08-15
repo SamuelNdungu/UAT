@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Claim;
 use App\Models\ClaimEvent;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+
 
 class ClaimController extends Controller
 {
@@ -93,7 +95,7 @@ class ClaimController extends Controller
     public function show(Claim $claim)
     {
         // Eager load the policy with its type
-        $claim->load('policy.policy_type');
+        $claim->load('policy.policyType');
     
         // Log the display of the claim details
         Log::info('Displaying details for claim ID: ' . $claim->id);
@@ -148,10 +150,13 @@ class ClaimController extends Controller
                 $filePath = $request->file('upload_file')->store('documents');
                 $validatedData['upload_file'] = $filePath; // Store file path in the database
             }
-    
+            // Assign the user_id from the authenticated user
+            $validatedData['user_id'] = Auth::id();
+
             // Create a new claim with the validated data
             $claim = new Claim($validatedData);
-    
+ 
+
             // Save the claim to the database
             $claim->save();
     
@@ -203,6 +208,9 @@ class ClaimController extends Controller
 
         // Log the update action
         Log::info('Updating claim ID: ' . $claim->id, $validated);
+
+        // Assign the user_id from the authenticated user
+        $validatedData['user_id'] = Auth::id();
 
         // Update the claim with the validated data
         $claim->update($validated);

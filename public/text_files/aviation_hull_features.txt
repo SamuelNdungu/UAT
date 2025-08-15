@@ -1,0 +1,48 @@
+
+Aviation Hull & Liability 
+
+Summary of Cover	
+Aviation Hull & Liability Insurance provides indemnity against loss of or damage/destruction to the aircraft and legal liability to third parties and passenger liability resulting from the use of the aircraft. Cover to include War Risks.
+
+Aircraft Details:
+--------------------------------------------------------------------------------------------------------
+| No.	|  Aircraft Details		 | Description
+--------------------------------------------------------------------------------------------------------
+| 1.	|  Make & Model			 |  
+| 2.	|  Registration			 |  
+| 3.	|  Seating Capacity		 |  
+| 4.	|  Value	                 |  
+--------------------------------------------------------------------------------------------------------		
+Pilots:
+--------------------------------------------------------------------------------------------------------
+No.	|  Pilot Details		|  Description 
+--------------------------------------------------------------------------------------------------------
+1.	|  Name 			|  
+2.	|  Age 				|  
+3.	|  Type of License		|   	
+4.	|  Flying Hours			|   	
+--------------------------------------------------------------------------------------------------------
+		
+Interest & Sums Insured / Limits:
+--------------------------------------------------------------------------------------------------------
+No.	|  Interest & Sums Insured / Limits		|  Amount in KSHS 
+--------------------------------------------------------------------------------------------------------
+1.	|  Hull						|  
+2.	|  Third Party Liability:	
+		  Any One Event				|  
+		  Any One Period			|  	
+3.	|  Passenger Liability				|  	
+4.	|  Baggage & Personal Articles			|  	
+5.	|  Life line Tools and Equipment		|  	
+--------------------------------------------------------------------------------------------------------
+Total							|  
+--------------------------------------------------------------------------------------------------------	 
+
+Use	
+
+Territorial Limits
+		
+Excess	
+       | - Hull -% of loss
+       | - Third Party Liability – Kshs ___ each and every claim
+       | - Passenger Liability – Kshs ___ each and every claim

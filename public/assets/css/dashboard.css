@@ -98,4 +98,130 @@ body{
     }
     
 
-    
+    /* Sidebar background and width */
+.sb-sidenav {
+    background-color: #343a40; /* Dark background */
+    width: 250px; /* Customize width */
+}
+
+/* Sidebar link styles */
+.sb-sidenav .nav-link {
+    color: #ddd; /* Light color for text */
+    padding: 10px 15px;
+    font-size: 16px;
+    font-weight: 500;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Icon styles */
+.sb-sidenav .sb-nav-link-icon {
+    margin-right: 10px; /* Space between icon and text */
+    color: #ffc107; /* Icon color */
+}
+
+/* Hover effect on sidebar links */
+.sb-sidenav .nav-link:hover {
+    background-color: #007bff; /* Slightly lighter background on hover */
+    color: #fff; /* White text on hover */
+}
+
+/* Active link styles */
+.sb-sidenav .nav-link.active {
+    background-color: #007bff; /* Blue for active links */
+    color: #fff;
+}
+
+/* Sidebar footer styles */
+.sb-sidenav-footer {
+    background-color: #2163a5; /* Darker background for footer */
+    color: #adb5bd; /* Light color for text */
+    padding: 15px;
+    text-align: center;
+    font-size: 14px;
+    border-top: 1px solid #7f8385; /* 1px top border */
+}
+
+/* Sidebar toggle button */
+#sidebarToggle {
+    color: #fff;
+    border: none;
+    background: transparent;
+}
+
+/* Sidebar minimized state (optional, for toggling) */
+.toggled #layoutSidenav_nav {
+    width: 80px; /* Minimized width */
+}
+
+.toggled .sb-sidenav .nav-link {
+    text-align: center;
+    padding: 10px 0; /* Center icons and reduce padding */
+}
+
+.toggled .sb-sidenav .nav-link .sb-nav-link-icon {
+    margin: 0;
+}
+
+/* Ensure main content takes up full width when toggled */
+.toggled main.full-width {
+    margin-left: 80px;
+}
+
+.sb-sidenav-menu .nav-link {
+    display: flex;
+    align-items: center;
+    padding: 10px 15px; /* Adjust padding for uniform look */
+    font-size: 16px; /* Adjust text size */
+}
+
+.sb-sidenav-menu .sb-nav-link-icon {
+    min-width: 30px; /* Set a fixed width for icons */
+    text-align: center; /* Center-align icons */
+    font-size: 18px; /* Ensure icon size is consistent */
+}
+
+.sb-sidenav-menu .nav-link i {
+    font-size: 18px; /* Ensure icons have consistent size */
+    margin-right: 10px; /* Space between icon and text */
+}
+
+.sb-sidenav-footer {
+    padding: 15px;
+    background-color: #2163a5;
+    color: #adb5bd;
+}
+
+.sb-sidenav-footer .small {
+    font-size: 12px;
+}
+/* When sidebar is collapsed */
+.sidebar-collapsed {
+    width: 80px; /* Small width for the collapsed sidebar */
+}
+
+/* Hide the text but keep the icons when collapsed */
+.sidebar-collapsed .nav-link {
+    text-align: center;
+}
+
+.sidebar-collapsed .nav-link .sb-nav-link-icon {
+    margin-right: 0;
+}
+
+.sidebar-collapsed .nav-link span {
+    display: none; /* Hide the text */
+}
+
+/* For sidebar in normal state (expanded) */
+.sidebar-expanded {
+    width: 250px; /* Full width when expanded */
+}
+
+/* Smooth transition for toggling */
+#layoutSidenav_nav {
+    transition: width 0.3s ease;
+}
+
+.sidebar-collapsed .sb-sidenav-footer {
+    text-align: center;
+}

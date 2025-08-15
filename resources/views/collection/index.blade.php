@@ -67,11 +67,23 @@
         </div>
         <div class="card-body">
             <div class="table-responsive" style="overflow-x: auto; overflow-y: auto; max-width: 970px;">
+
+            <div class="col-md-6 text-md-end text-start"> 
+
+                    <a href="{{ route('collection.export.pdf') }}" class="btn btn-danger" style="padding: 5px 10px; font-size: 0.9rem;">
+                        <i class="fas fa-file-pdf" style="font-size: 0.65rem;"></i> Export PDF
+                    </a>
+
+                    <a href="{{ route('collection.export.excel') }}" class="btn btn-success" style="padding: 5px 10px; font-size: 0.9rem;">
+                        <i class="fas fa-file-excel" style="font-size: 0.65rem;"></i> Export Excel
+                    </a>
+                </div>
+
                 <table id="myTable" class="table table-striped rounded-top" style="width: auto; font-size: 12px;">
                     <thead style="white-space: nowrap;">
                         <tr>
                             <th>File No.</th>
-                            <th>Buss Date</th>
+                            <th>Entry Date</th>
                             <th>Name</th>
                             <th>Policy Type</th>
                             <th>Start Date</th>
@@ -81,22 +93,33 @@
                             <th>Paid Amount</th>
                             <th>Due Amount</th>
                             <th>Aging Band</th> <!-- New Column for Aging Band -->
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody style="white-space: nowrap;">
                         @foreach($filteredPolicies as $policy)
                         <tr>
                             <td>{{ $policy->fileno }}</td>
-                            <td>{{ \Carbon\Carbon::parse($policy->buss_date)->format('Y-m-d') }}</td>
+                            <td>{{ \Carbon\Carbon::parse($policy->created_at)->format('d-m-Y') }}</td>
                             <td>{{ $policy->customer_name }}</td>
                             <td>{{ $policy->policy_type_name }}</td>
-                            <td>{{ \Carbon\Carbon::parse($policy->start_date)->format('Y-m-d') }}</td>
-                            <td>{{ \Carbon\Carbon::parse($policy->end_date)->format('Y-m-d') }}</td> 
+                            <td>{{ \Carbon\Carbon::parse($policy->start_date)->format('d-m-Y') }}</td>
+                            <td>{{ \Carbon\Carbon::parse($policy->end_date)->format('d-m-Y') }}</td> 
                             <td>{{ $policy->reg_no }}</td>
                             <td>{{ number_format($policy->gross_premium, 2) }}</td>
                             <td>{{ number_format($policy->paid_amount, 2) }}</td>
                             <td>{{ number_format($policy->balance, 2) }}</td> <!-- Due Amount -->
                             <td>{{ $policy->aging_band }}</td> <!-- Aging Band -->
+
+                              <!-- Action Buttons -->
+        <td>
+            <button class="btn btn-sm btn-primary" onclick="sendEmail('{{ $policy->customer_name }}', '{{ $policy->balance }}', '{{ $policy->customer_code }}')">
+                <i class="fas fa-envelope"></i>
+            </button>
+            <button class="btn btn-sm btn-success" onclick="sendSMS('{{ $policy->customer_name }}', '{{ $policy->balance }}', '{{ $policy->customer_code }}')">
+                <i class="fas fa-sms"></i>
+            </button>
+        </td>
                         </tr>
                         @endforeach
                     </tbody>
@@ -113,6 +136,7 @@
                             <th>Paid Amount</th>
                             <th>Due Amount</th>
                             <th>Aging Band</th> <!-- New Column for Aging Band -->
+                            <th>Action</th>
                         </tr>
                     </tfoot>
                 </table>
@@ -144,4 +168,49 @@ function confirmDelete() {
     transform: scale(0.95);
 }
 </style>
+
+
+
+<script>function sendEmail(customerName, balance, customerCode) {
+    if (confirm(`Send email to ${customerName} showing balance: KES ${balance}?`)) {
+        // Make an AJAX request to send the email
+        fetch(`/send-email/${customerCode}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ balance: balance })
+        }).then(response => {
+            if (response.ok) {
+                alert('Email sent successfully!');
+            } else {
+                alert('Failed to send email.');
+            }
+        });
+    }
+}
+
+function sendSMS(customerName, balance, customerCode) {
+    if (confirm(`Send SMS to ${customerName} showing balance: KES ${balance}?`)) {
+        // Make an AJAX request to send the SMS
+        fetch(`/send-sms/${customerCode}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ balance: balance })
+        }).then(response => {
+            if (response.ok) {
+                alert('SMS sent successfully!');
+            } else {
+                alert('Failed to send SMS.');
+            }
+        });
+    }
+}
+
+</script>
+
 @endsection

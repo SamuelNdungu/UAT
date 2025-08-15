@@ -8,18 +8,19 @@
  
     <div class="container-fluid">
         <div class="row">
-            <div class="col-lg-3 col-sm-6">
-                <div class="card-box bg-cyan" style="border-radius: 5px;">
-                    <div class="inner">
-                        <h3> KES 1,200,000 </h3>
-                        <p> Sales </p>
-                    </div>
-                    <div class="icon">
-                        <i class="fa fa-chart-line" aria-hidden="true"></i>
-                    </div>
-                    <a href="#" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
-                </div>
-            </div>
+        <div class="col-lg-3 col-sm-6">
+    <div class="card-box bg-cyan" style="border-radius: 5px; cursor: pointer;" onclick="window.location='{{ route('policies.index') }}'">
+        <div class="inner">
+            <h5> KES {{ number_format($metrics['totalSales'], 2) }} </h5>
+            <p> Total Sales </p>
+        </div>
+        <div class="icon">
+            <i class="fa fa-chart-line" aria-hidden="true"></i>
+        </div>
+        <a href="{{ route('policies.index') }}" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
+    </div>
+</div>
+
 
             <div class="col-lg-3 col-sm-6">
                 <div class="card-box bg-green" style="border-radius: 5px;">

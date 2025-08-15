@@ -9,6 +9,8 @@ if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php'))
     require $maintenance;
 }
 
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 // Register the Composer autoloader...
 require __DIR__.'/../vendor/autoload.php';
 

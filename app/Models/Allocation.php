@@ -10,7 +10,7 @@ class Allocation extends Model
     use HasFactory;
 
     protected $fillable = [
-        'payment_id', 'policy_id', 'allocation_amount', 'allocation_date'
+        'payment_id', 'policy_id', 'allocation_amount', 'allocation_date','user_id',
     ];
 
     public function payment()

@@ -24,6 +24,7 @@ class Claim extends Model
         'amount_paid',
         'status',
         'upload_file',
+        'user_id',
     ];
     protected $dates = [
         'reported_date',

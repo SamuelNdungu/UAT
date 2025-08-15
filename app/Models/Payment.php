@@ -11,12 +11,12 @@ class Payment extends Model
 
     protected $fillable = [
         'customer_code', 'payment_date', 'payment_amount', 
-        'payment_method', 'payment_reference', 'payment_status', 'notes'
+        'payment_method', 'payment_reference', 'payment_status', 'notes','user_id',
     ];
 
     public function customer()
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(Customer::class, 'customer_code','customer_code');
     }
 
     public function receipts()

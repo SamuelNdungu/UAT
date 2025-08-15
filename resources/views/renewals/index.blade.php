@@ -75,7 +75,7 @@
                     <thead style="white-space: nowrap;">
                         <tr>
                             <th>File No.</th>
-                            <th>Buss Date</th>
+                            <th>Entry Date</th>
                             <th>Cust Code</th>
                             <th>Name</th>
                             <th>Policy Type</th> 
@@ -88,6 +88,7 @@
                             <th>Model</th> 
                             <th>Sum Insured</th>                           
                             <th>Gross Premium</th> 
+                            <th>Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -95,12 +96,12 @@
                         @foreach($policies as $policy)
                         <tr>
                             <td>{{ $policy->fileno }}</td>
-                            <td>{{ \Carbon\Carbon::parse($policy->buss_date)->format('Y-m-d') }}</td> 
+                            <td>{{ \Carbon\Carbon::parse($policy->created_at)->format('d-m-Y') }}</td> 
                             <td>{{ $policy->customer_code }}</td>
                             <td>{{ $policy->customer_name }}</td>
                             <td>{{ $policy->policy_type_name }}</td> 
-                            <td>{{ \Carbon\Carbon::parse($policy->start_date)->format('Y-m-d') }}</td> 
-                            <td>{{ \Carbon\Carbon::parse($policy->end_date)->format('Y-m-d') }}</td>
+                            <td>{{ \Carbon\Carbon::parse($policy->start_date)->format('d-m-Y') }}</td> 
+                            <td>{{ \Carbon\Carbon::parse($policy->end_date)->format('d-m-Y') }}</td>
                             <td>{{ $policy->insurer_name }}</td>
                             <td>{{ $policy->policy_no }}</td>
                             <td>{{ $policy->reg_no }}</td>
@@ -112,17 +113,18 @@
                                 <a href="{{ route('policies.show', $policy->id) }}" class="btn btn-info btn-xs" aria-label="View" title="View" style="font-size: 0.5rem; padding: 2px 5px;">
                                     <i class="fas fa-eye" aria-hidden="true" style="font-size: 0.5rem;"></i>
                                 </a>
-                                <a href="{{ route('renewals.edit', $policy->id) }}" class="btn btn-warning btn-xs" aria-label="Renew" title="Renew" style="font-size: 0.5rem; padding: 2px 5px;">
+                                <a href="{{ route('renewals.renew', $policy->id) }}" class="btn btn-warning btn-xs" aria-label="Renew" title="Renew" style="font-size: 0.5rem; padding: 2px 5px;">
                                     <i class="fas fa-pencil-alt" aria-hidden="true" style="font-size: 0.5rem;"></i>
                                 </a>
                             </td>
+                            <td>{{ $policy->status }}</td>
                         </tr>
                         @endforeach
                     </tbody>
                     <tfoot>
                         <tr>
                             <th>File No.</th>
-                            <th>Buss Date</th>
+                            <th>Entry Date</th>
                             <th>Cust Code</th>
                             <th>Name</th>
                             <th>Policy Type</th> 
@@ -135,6 +137,7 @@
                             <th>Model</th> 
                             <th>Sum Insured</th>                           
                             <th>Gross Premium</th>
+                            <th>Status</th>
                             <th>Actions</th>
                         </tr>
                     </tfoot>

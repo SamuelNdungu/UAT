@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('Bima-Connect', 'Bima-Connect'),
+    'name' => env('Midrash Insurance', 'Midrash Insurance'),
 
     /*
     |--------------------------------------------------------------------------

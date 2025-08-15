@@ -1,86 +1,99 @@
 @extends('layouts.app')
 
 @section('content')
-
 <div class="container"> 
-<div class="row mb-3">
-<div class="col-lg-3 col-sm-6">
-    <div class="card-box bg-cyan card-clickable" style="border-radius: 5px;" onclick="window.location='{{ route('policies.index', ['filter' => 'total']) }}'">
-        <div class="inner">
-            <h3>{{ $metrics['totalPolicies'] }}</h3>
-            <p>Total Policies</p>
+    <div class="row mb-3">
+        <!-- Total Policies Card -->
+        <div class="col-lg-3 col-sm-6">
+            <div class="card-box bg-cyan card-clickable" style="border-radius: 5px;" onclick="window.location='{{ route('policies.index', ['filter' => 'total']) }}'">
+                <div class="inner">
+                    <h3>{{ $metrics['totalPolicies'] }}</h3>
+                    <p>Total Policies</p>
+                </div>
+                <div class="icon">
+                    <i class="fa fa-chart-line" aria-hidden="true"></i>
+                </div>
+                <a href="#" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
+            </div>
         </div>
-        <div class="icon">
-            <i class="fa fa-chart-line" aria-hidden="true"></i>
+
+        <!-- Motor Policies Card -->
+        <div class="col-lg-3 col-sm-6">
+            <div class="card-box bg-green card-clickable" style="border-radius: 5px;" onclick="window.location='{{ route('policies.index', ['filter' => 'motor']) }}'">
+                <div class="inner">
+                    <h3>{{ $metrics['motorPolicies'] }}</h3>
+                    <p>Motor Policies</p>
+                </div>
+                <div class="icon">
+                    <i class="fa fa-hand-holding-usd" aria-hidden="true"></i>
+                </div>
+                <a href="#" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
+            </div>
         </div>
-        <a href="#" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
+
+        <!-- Non Motor Policies Card -->
+        <div class="col-lg-3 col-sm-6">
+            <div class="card-box bg-orange card-clickable" style="border-radius: 5px;" onclick="window.location='{{ route('policies.index', ['filter' => 'nonMotor']) }}'">
+                <div class="inner">
+                    <h3>{{ $metrics['nonMotorPolicies'] }}</h3>
+                    <p>Non Motor Policies</p>
+                </div>
+                <div class="icon">
+                    <i class="fa fa-file-alt" aria-hidden="true"></i>
+                </div>
+                <a href="#" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
+            </div>
+        </div>
+
+        <!-- Claims Card -->
+        <div class="col-lg-3 col-sm-6">
+            <div class="card-box bg-red card-clickable" style="border-radius: 5px;" onclick="window.location='{{ route('policies.index', ['filter' => 'claims']) }}'">
+                <div class="inner">
+                    <h3>{{ $metrics['policiesWithClaims'] }}</h3>
+                    <p>Claims</p>
+                </div>
+                <div class="icon">
+                    <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                </div>
+                <a href="#" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
+            </div>
+        </div>
     </div>
-</div>
 
-<div class="col-lg-3 col-sm-6">
-    <div class="card-box bg-green card-clickable" style="border-radius: 5px;" onclick="window.location='{{ route('policies.index', ['filter' => 'motor']) }}'">
-        <div class="inner">
-            <h3>{{ $metrics['motorPolicies'] }}</h3>
-            <p>Motor Policies</p>
-        </div>
-        <div class="icon">
-            <i class="fa fa-hand-holding-usd" aria-hidden="true"></i>
-        </div>
-        <a href="#" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
-    </div>
-</div>
-
-<div class="col-lg-3 col-sm-6">
-    <div class="card-box bg-orange card-clickable" style="border-radius: 5px;" onclick="window.location='{{ route('policies.index', ['filter' => 'nonMotor']) }}'">
-        <div class="inner">
-            <h3>{{ $metrics['nonMotorPolicies'] }}</h3>
-            <p>Non Motor Policies</p>
-        </div>
-        <div class="icon">
-            <i class="fa fa-file-alt" aria-hidden="true"></i>
-        </div>
-        <a href="#" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
-    </div>
-</div>
-
-<div class="col-lg-3 col-sm-6">
-    <div class="card-box bg-red card-clickable" style="border-radius: 5px;" onclick="window.location='{{ route('policies.index', ['filter' => 'claims']) }}'">
-        <div class="inner">
-            <h3>{{ $metrics['policiesWithClaims'] }}</h3>
-            <p>Claims</p>
-        </div>
-        <div class="icon">
-            <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
-        </div>
-        <a href="#" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
-    </div>
-</div>
-
-    </div>
-
-
-
+    <!-- Policies List Card -->
     <div class="card card-danger">
         <div class="card-header">
-            <div class="row">
+            <div class="row" style="display: flex; align-items: center;" color="primary">
                 <div class="col-md-6 d-flex align-items-center">
-                    <h4 class="card-title">Policies List</h4>
-                </div>
+                    <h4 class="card-title">Policies List</h4>                    
+                </div> 
                 <div class="col-md-6 text-md-end text-start">
-                    <a href="{{ route('policies.create') }}" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 4px 8px;">
-                        <i class="fas fa-plus" style="font-size: 0.75rem;"></i> Add
-                    </a>
-                </div>
+
+                    <a href="{{ route('policies.create') }}" class="btn btn-primary" style="padding: 5px 10px; font-size: 0.9rem;">
+                                                <i class="fas fa-plus" style="font-size: 0.65rem;"></i> Add </a>
+
+                    <a href="{{ route('export.pdf') }}" class="btn btn-danger" style="padding: 5px 10px; font-size: 0.9rem;">
+                                                    <i class="fas fa-file-pdf" style="font-size: 0.65rem;"></i> Export PDF </a>
+
+                    <a href="{{ route('export.excel') }}" class="btn btn-success" style="padding: 5px 10px; font-size: 0.9rem;">
+                                                    <i class="fas fa-file-excel" style="font-size: 0.65rem;"></i> Export Excel </a>
+                </div> 
 
             </div>
         </div>
         <div class="card-body">
             <div class="table-responsive" style="overflow-x: auto; overflow-y: auto; max-width: 970px;">
+                
+
                 <table id="myTable" class="table table-striped rounded-top" style="width: auto; font-size: 12px;">
                     <thead style="white-space: nowrap;">
                         <tr>
-                            <th>File No.</th>
-                            <th>Buss Date</th>
+                            <th>
+                                <div style="display: flex; align-items: center;">
+                                    <span>File No.</span>
+                                </div>
+                            </th>
+                            <th>Entry Date</th>
                             <th>Cust Code</th>
                             <th>Name</th>
                             <th>Policy Type</th>
@@ -114,18 +127,19 @@
                             <th>Actions</th>
                         </tr>
                     </thead>
+
                     <tbody style="white-space: nowrap;">
                         @foreach($policies as $policy)
                         <tr>
                             <td>{{ $policy->fileno }}</td>
-                            <td>{{ \Carbon\Carbon::parse($policy->created_at)->format('Y-m-d') }}</td> 
+                            <td>{{ \Carbon\Carbon::parse($policy->updated_at)->format('d-m-Y') }}</td> 
                             <td>{{ $policy->customer_code }}</td>
                             <td>{{ $policy->customer_name }}</td>
                             <td>{{ $policy->policy_type_name }}</td>
                             <td>{{ $policy->coverage }}</td>
-                            <td>{{ \Carbon\Carbon::parse($policy->start_date)->format('Y-m-d') }}</td>
+                            <td>{{ \Carbon\Carbon::parse($policy->start_date)->format('d-m-Y') }}</td>
                             <td>{{ $policy->days }}</td>
-                            <td>{{ \Carbon\Carbon::parse($policy->end_date)->format('Y-m-d') }}</td>
+                            <td>{{ \Carbon\Carbon::parse($policy->end_date)->format('d-m-Y') }}</td>
                             <td>{{ $policy->insurer_name }}</td>
                             <td>{{ $policy->policy_no }}</td>
                             <td>{{ $policy->reg_no }}</td>
@@ -148,10 +162,6 @@
                             <td>{{ number_format($policy->net_premium, 2) }}</td>
                             <td>{{ number_format($policy->paid_amount, 2) }}</td>
                             <td>{{ number_format($policy->balance, 2) }}</td>
-                            
-                            
-                            
-                            
                             <td>
                                 @if($policy->documents)
                                     @php
@@ -167,28 +177,28 @@
                                     @endif
                                 @endif
                                 <td style="white-space: nowrap; position: sticky; right: 0; background-color: white; z-index: 100; padding: 2px; border-left: 1px solid #ddd;">
-    <a href="{{ route('policies.show', $policy->id) }}" class="btn btn-info btn-xs" aria-label="View" title="View" style="font-size: 0.5rem; padding: 2px 5px;">
-        <i class="fas fa-eye" aria-hidden="true" style="font-size: 0.5rem;"></i>
-    </a>
-    <a href="{{ route('policies.edit', $policy->id) }}" class="btn btn-warning btn-xs" aria-label="Edit" title="Edit" style="font-size: 0.5rem; padding: 2px 5px;">
-        <i class="fas fa-pencil-alt" aria-hidden="true" style="font-size: 0.5rem;"></i>
-    </a>
-    <form action="{{ route('policies.destroy', $policy->id) }}" method="POST" style="display:inline;" onsubmit="return confirmDelete()">
-        @csrf
-        @method('DELETE')
-        <button type="submit" class="btn btn-danger btn-xs" aria-label="Delete" title="Delete" style="font-size: 0.5rem; padding: 2px 5px;">
-            <i class="fas fa-trash" aria-hidden="true" style="font-size: 0.5rem;"></i>
-        </button>
-    </form>
-</td>
-
+                                    <a href="{{ route('policies.show', $policy->id) }}" class="btn btn-info btn-xs" aria-label="View" title="View" style="font-size: 0.5rem; padding: 2px 5px;">
+                                        <i class="fas fa-eye" aria-hidden="true" style="font-size: 0.5rem;"></i>
+                                    </a>
+                                    <a href="{{ route('policies.edit', $policy->id) }}" class="btn btn-warning btn-xs" aria-label="Edit" title="Edit" style="font-size: 0.5rem; padding: 2px 5px;">
+                                        <i class="fas fa-pencil-alt" aria-hidden="true" style="font-size: 0.5rem;"></i>
+                                    </a>
+                                    <form action="{{ route('policies.destroy', $policy->id) }}" method="POST" style="display:inline;" onsubmit="return confirmDelete()">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-danger btn-xs" aria-label="Delete" title="Delete" style="font-size: 0.5rem; padding: 2px 5px;">
+                                            <i class="fas fa-trash" aria-hidden="true" style="font-size: 0.5rem;"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </td>
                         </tr>
                         @endforeach
                     </tbody>
                     <tfoot>
                         <tr>
                             <th>File No.</th>
-                            <th>Buss Date</th>
+                            <th>Entry Date</th>
                             <th>Cust Code</th>
                             <th>Name</th>
                             <th>Policy Type</th>
@@ -228,6 +238,7 @@
     </div>
 </div> 
 
+<!-- Include DataTables CSS and JS -->
 <link rel="stylesheet" href="https://cdn.datatables.net/2.1.4/css/dataTables.dataTables.css" />
 <script src="https://cdn.datatables.net/2.1.4/js/dataTables.js"></script>
 
@@ -247,13 +258,13 @@ $(document).ready(function() {
     );
 });
 
+// Confirm before delete
 function confirmDelete() {
     return confirm('Are you sure you want to delete this record?');
 }
 </script>
 
 <style>
-
 .card-clickable {
     cursor: pointer;
     transition: transform 0.3s ease-in-out;
@@ -262,8 +273,5 @@ function confirmDelete() {
 .card-clickable:hover {
     transform: scale(1.05);
 }
-
 </style>
-
-
 @endsection

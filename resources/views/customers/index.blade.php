@@ -66,7 +66,13 @@
                     </div>
                     <div class="col-md-6 text-md-end text-start">
                         <a href="{{ route('customers.create') }}" class="btn btn-primary" style="padding: 5px 10px; font-size: 0.9rem;">
-                            <i class="fas fa-plus" style="font-size: 0.75rem;"></i> Add </a>
+                            <i class="fas fa-plus" style="font-size: 0.65rem;"></i> Add </a>
+                            <a href="{{ route('customers.export.pdf') }}" class="btn btn-danger" style="padding: 5px 10px; font-size: 0.9rem;">
+                                <i class="fas fa-file-pdf" style="font-size: 0.65rem;"></i> Export PDF 
+                            </a>
+                            <a href="{{ route('customers.export.excel') }}" class="btn btn-success" style="padding: 5px 10px; font-size: 0.9rem;">
+                                <i class="fas fa-file-excel" style="font-size: 0.65rem;"></i> Export Excel 
+                            </a>
                     </div>
                 </div>
             </div>
@@ -135,7 +141,7 @@
                 </div>
             </div>
        
-    </div>
+        </div>
     </div>
 </div>
 

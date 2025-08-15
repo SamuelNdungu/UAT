@@ -21,7 +21,7 @@
 <div class="container"> 
     <div class="row mb-3">
         <div class="col-lg-3 col-sm-6">
-            <div class="card-box bg-cyan" data-filter="all" style="border-radius: 5px;">
+            <div class="card-box bg-cyan" style="border-radius: 5px;" onclick="window.location='{{ route('claims.index', ['filter' => 'all']) }}'">
                 <div class="inner">
                     <h3>{{ $metrics['totalClaims'] }}</h3>
                     <p>Total Claims</p>
@@ -29,12 +29,12 @@
                 <div class="icon">
                     <i class="fa fa-chart-line" aria-hidden="true"></i>
                 </div>
-                <a href="#" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
+                <a href="{{ route('claims.index', ['filter' => 'all']) }}" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
             </div>
         </div>
 
         <div class="col-lg-3 col-sm-6">
-            <div class="card-box bg-green" data-filter="Open" style="border-radius: 5px;">
+            <div class="card-box bg-green" style="border-radius: 5px;" onclick="window.location='{{ route('claims.index', ['filter' => 'Open']) }}'">
                 <div class="inner">
                     <h3>{{ $metrics['openClaims'] }}</h3>
                     <p>Open Claims</p>
@@ -42,12 +42,12 @@
                 <div class="icon">
                     <i class="fa fa-hand-holding-usd" aria-hidden="true"></i>
                 </div>
-                <a href="#" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
+                <a href="{{ route('claims.index', ['filter' => 'Open']) }}" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
             </div>
         </div>
 
         <div class="col-lg-3 col-sm-6">
-            <div class="card-box bg-orange" data-filter="Closed" style="border-radius: 5px;">
+            <div class="card-box bg-orange" style="border-radius: 5px;" onclick="window.location='{{ route('claims.index', ['filter' => 'Closed']) }}'">
                 <div class="inner">
                     <h3>{{ $metrics['closedClaims'] }}</h3>
                     <p>Closed Claims</p>
@@ -55,12 +55,12 @@
                 <div class="icon">
                     <i class="fa fa-file-alt" aria-hidden="true"></i>
                 </div>
-                <a href="#" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
+                <a href="{{ route('claims.index', ['filter' => 'Closed']) }}" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
             </div>
         </div>
 
         <div class="col-lg-3 col-sm-6">
-            <div class="card-box bg-red" data-filter="Pending" style="border-radius: 5px;">
+            <div class="card-box bg-red" style="border-radius: 5px;" onclick="window.location='{{ route('claims.index', ['filter' => 'Pending']) }}'">
                 <div class="inner">
                     <h3>{{ $metrics['pendingClaims'] }}</h3>
                     <p>Pending Claims</p>
@@ -68,7 +68,7 @@
                 <div class="icon">
                     <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
                 </div>
-                <a href="#" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
+                <a href="{{ route('claims.index', ['filter' => 'Pending']) }}" class="card-box-footer">View More <i class="fa fa-arrow-circle-right"></i></a>
             </div>
         </div>
     </div>
@@ -114,47 +114,47 @@
                     </thead>
                     <tbody style="white-space: nowrap;">
                         @foreach($claims as $claim)
-                        <tr class="claim-row" data-status="{{ $claim->status }}">
-                            <td>{{ $claim->id }}</td>
-                            <td>{{ $claim->claim_number }}</td>
-                            <td>{{ $claim->fileno }}</td>
-                            <td>{{ $claim->policy_number ?? 'N/A' }}</td>
-                            <td>{{ $claim->policy_type_name ?? 'N/A' }}</td>
-                            <td>{{ $claim->reg_no ?? 'N/A' }}</td>
-                            <td>{{ number_format($claim->sum_insured, 2) ?? 'N/A' }}</td>
-                            <td>{{ $claim->customer_name ?? 'N/A' }}</td>
-                            <td>{{ $claim->customer_code }}</td>
-                            <td>{{ $claim->claimant_name }}</td>
-                            <td>{{ \Carbon\Carbon::parse($claim->reported_date)->format('Y-m-d') }}</td>
-                            <td>{{ $claim->type_of_loss }}</td>
-                            <td>{{ \Carbon\Carbon::parse($claim->loss_date)->format('Y-m-d') }}</td>
-                            <td>{{ \Carbon\Carbon::parse($claim->followup_date)->format('Y-m-d') ?? 'N/A' }}</td>
-                            <td>{{ number_format($claim->amount_claimed, 2) }}</td>
-                            <td>{{ $claim->amount_paid ? number_format($claim->amount_paid, 2) : 'N/A' }}</td>
-                            <td>{{ $claim->status }}</td>
-                            <td>
-                                @if($claim->upload_file)
-                                    <a href="{{ asset('storage/' . $claim->upload_file) }}" target="_blank">View Document</a>
-                                @else
-                                    N/A
-                                @endif
-                            </td>
-                            <td style="white-space: nowrap; position: sticky; right: 0; background-color: white; z-index: 100; padding: 2px; border-left: 1px solid #ddd;">
-                                <a href="{{ route('claims.show', $claim->id) }}" class="btn btn-info btn-xs" aria-label="View" title="View" style="font-size: 0.5rem; padding: 2px 5px;">
-                                    <i class="fas fa-eye" aria-hidden="true" style="font-size: 0.5rem;"></i>
-                                </a>
-                                <a href="{{ route('claims.edit', $claim->id) }}" class="btn btn-warning btn-xs" aria-label="Edit" title="Edit" style="font-size: 0.5rem; padding: 2px 5px;">
-                                    <i class="fas fa-pencil-alt" aria-hidden="true" style="font-size: 0.5rem;"></i>
-                                </a>
-                                <form action="{{ route('claims.destroy', $claim->id) }}" method="POST" style="display:inline;" onsubmit="return confirmDelete()">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-danger btn-xs" aria-label="Delete" title="Delete" style="font-size: 0.5rem; padding: 2px 5px;">
-                                        <i class="fas fa-trash" aria-hidden="true" style="font-size: 0.5rem;"></i>
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
+                            <tr class="claim-row" data-status="{{ $claim->status }}">
+                                <td>{{ $claim->id }}</td>
+                                <td>{{ $claim->claim_number }}</td>
+                                <td>{{ $claim->fileno }}</td>
+                                <td>{{ $claim->policy_number ?? 'N/A' }}</td>
+                                <td>{{ $claim->policy_type_name ?? 'N/A' }}</td>
+                                <td>{{ $claim->reg_no ?? 'N/A' }}</td>
+                                <td>{{ number_format($claim->sum_insured, 2) ?? 'N/A' }}</td>
+                                <td>{{ $claim->customer_name ?? 'N/A' }}</td>
+                                <td>{{ $claim->customer_code }}</td>
+                                <td>{{ $claim->claimant_name }}</td>
+                                <td>{{ \Carbon\Carbon::parse($claim->reported_date)->format('d-m-Y') }}</td>
+                                <td>{{ $claim->type_of_loss }}</td>
+                                <td>{{ \Carbon\Carbon::parse($claim->loss_date)->format('d-m-Y') }}</td>
+                                <td>{{ \Carbon\Carbon::parse($claim->followup_date)->format('d-m-Y') ?? 'N/A' }}</td>
+                                <td>{{ number_format($claim->amount_claimed, 2) }}</td>
+                                <td>{{ $claim->amount_paid ? number_format($claim->amount_paid, 2) : 'N/A' }}</td>
+                                <td>{{ $claim->status }}</td>
+                                <td>
+                                    @if($claim->upload_file)
+                                        <a href="{{ asset('storage/' . $claim->upload_file) }}" target="_blank">View Document</a>
+                                    @else
+                                        N/A
+                                    @endif
+                                </td>
+                                <td style="white-space: nowrap; position: sticky; right: 0; background-color: white; z-index: 100; padding: 2px; border-left: 1px solid #ddd;">
+                                    <a href="{{ route('claims.show', $claim->id) }}" class="btn btn-info btn-xs" aria-label="View" title="View" style="font-size: 0.5rem; padding: 2px 5px;">
+                                        <i class="fas fa-eye" aria-hidden="true" style="font-size: 0.5rem;"></i>
+                                    </a>
+                                    <a href="{{ route('claims.edit', $claim->id) }}" class="btn btn-warning btn-xs" aria-label="Edit" title="Edit" style="font-size: 0.5rem; padding: 2px 5px;">
+                                        <i class="fas fa-pencil-alt" aria-hidden="true" style="font-size: 0.5rem;"></i>
+                                    </a>
+                                    <form action="{{ route('claims.destroy', $claim->id) }}" method="POST" style="display:inline;" onsubmit="return confirmDelete()">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-danger btn-xs" aria-label="Delete" title="Delete" style="font-size: 0.5rem; padding: 2px 5px;">
+                                            <i class="fas fa-trash" aria-hidden="true" style="font-size: 0.5rem;"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
                         @endforeach
                     </tbody>
                     <tfoot>
@@ -201,7 +201,7 @@ $(document).ready(function() {
         "ordering": true,
         "info": true,
         "autoWidth": false,
-        "order": [[ 0, "asc" ]],
+        "order": [[0, "asc"]],
         "columnDefs": [
             { "orderable": false, "targets": [17, 18] }, // Disable ordering for the last two columns
             { "searchable": false, "targets": [17, 18] } // Disable search for the last two columns
@@ -231,7 +231,6 @@ $(document).ready(function() {
         }
     }
 });
-
 </script>
 
 @endsection
