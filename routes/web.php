@@ -157,4 +157,7 @@ Route::post('/mpesa/callback', [MpesaPaymentController::class, 'handleMpesaCallb
   Route::get('/fees/{id}/print', [FeesController::class, 'print'])->name('fees.print');
   
   Route::get('/search', [FeesController::class, 'search'])->name('search.customers');
+
+    // Settings route
+    Route::get('/settings', [App\Http\Controllers\SettingsController::class, 'index'])->name('settings.index');
 });

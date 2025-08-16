@@ -125,6 +125,10 @@
                     <div class="sb-nav-link-icon"><i class="fas fa-file-invoice"></i></div>
                     Fees
                 </a>
+                    <a class="nav-link" href="{{ route('settings.index') }}">
+                        <div class="sb-nav-link-icon"><i class="fas fa-cog"></i></div>
+                        Settings
+                    </a>
             </div>
         </div>
 
