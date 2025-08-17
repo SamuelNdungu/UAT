@@ -5,8 +5,11 @@
     <h1 class="my-4">Settings</h1>
     <div class="row">
         <div class="col-md-4 mb-3">
-            <a href="#" class="btn btn-outline-primary w-100">
-                <i class="fas fa-building"></i> Insurance Companies
+
+            <!-- Link to Insurance Companies CRUD -->
+            <div class="col-md-4 mb-3">
+                <a href="{{ route('insurance_companies.index') }}" class="btn btn-outline-success w-100">
+                    <i class="fas fa-building"></i> Manage Insurance Companies
             </a>
         </div>
         <div class="col-md-4 mb-3">

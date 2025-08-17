@@ -1,0 +1,149 @@
+@extends('layouts.appPages')
+
+@section('content')
+<style>
+    /* Styling for search results */
+    .result-item {
+        padding: 8px;
+        cursor: pointer;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #ddd;
+    }
+    .result-item:hover {
+        background-color: #e9ecef;
+        color: #0056b3;
+    }
+
+    /* Form styling for a modern look */
+    .form-group label {
+        font-weight: bold;
+    }
+
+    /* Group headings */
+    .group-heading {
+        margin-top: 20px;
+        padding-bottom: 5px;
+        border-bottom: 2px solid #007bff;
+        color: #007bff;
+        font-size: 1.25rem;
+    }
+</style>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-12">
+            <div class="card shadow-lg border-0 mt-4 mb-5">
+                <div class="card-body p-4">
+                    <h1 class="mb-2">Add Insurance Company</h1>
+                    <p class="text-muted mb-4">Fill in the details below to register a new insurance company.</p>
+                    <form method="POST" action="{{ route('insurance_companies.store') }}">
+                        @csrf
+                        <div class="group-heading">Company Details</div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-building"></i></span>
+                                    <input type="text" class="form-control @error('name') is-invalid @enderror" id="name" name="name" placeholder="e.g. Jubilee Insurance" required value="{{ old('name') }}">
+                                    @error('name')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="email" class="form-label">Email</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                    <input type="email" class="form-control @error('email') is-invalid @enderror" id="email" name="email" placeholder="e.g. info@jubilee.com" value="{{ old('email') }}">
+                                    @error('email')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="phone" class="form-label">Phone</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-phone"></i></span>
+                                    <input type="text" class="form-control @error('phone') is-invalid @enderror" id="phone" name="phone" placeholder="e.g. +254700000000" value="{{ old('phone') }}">
+                                    @error('phone')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="address" class="form-label">Address</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-map-marker-alt"></i></span>
+                                    <input type="text" class="form-control @error('address') is-invalid @enderror" id="address" name="address" placeholder="e.g. P.O. Box 1234" value="{{ old('address') }}">
+                                    @error('address')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+                        <div class="group-heading">Location</div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="city" class="form-label">City</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-city"></i></span>
+                                    <input type="text" class="form-control @error('city') is-invalid @enderror" id="city" name="city" placeholder="e.g. Nairobi" value="{{ old('city') }}">
+                                    @error('city')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="country" class="form-label">Country</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-flag"></i></span>
+                                    <input type="text" class="form-control @error('country') is-invalid @enderror" id="country" name="country" placeholder="e.g. Kenya" value="{{ old('country') }}">
+                                    @error('country')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="street" class="form-label">Street</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-road"></i></span>
+                                    <input type="text" class="form-control @error('street') is-invalid @enderror" id="street" name="street" placeholder="e.g. Kimathi Street" value="{{ old('street') }}">
+                                    @error('street')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label for="physical_address" class="form-label">Physical Address</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-location-arrow"></i></span>
+                                    <input type="text" class="form-control @error('physical_address') is-invalid @enderror" id="physical_address" name="physical_address" placeholder="e.g. 1st Floor, Jubilee House" value="{{ old('physical_address') }}">
+                                    @error('physical_address')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group mt-4">
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <button type="submit" class="btn btn-success btn-lg w-100 shadow-sm">
+                                        <i class="fas fa-save"></i> Save
+                                    </button>
+                                </div>
+                                <div class="col-md-6">
+                                    <a href="{{ route('insurance_companies.index') }}" class="btn btn-secondary btn-lg w-100 shadow-sm">
+                                        <i class="fas fa-arrow-left"></i> Back
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
