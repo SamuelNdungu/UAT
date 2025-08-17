@@ -160,5 +160,8 @@ Route::post('/mpesa/callback', [MpesaPaymentController::class, 'handleMpesaCallb
 
     // Settings route
     Route::get('/settings', [App\Http\Controllers\SettingsController::class, 'index'])->name('settings.index');
-    Route::resource('insurance_companies', App\Http\Controllers\InsuranceCompanyController::class);
+  Route::resource('insurance_companies', App\Http\Controllers\InsuranceCompanyController::class);
+  Route::resource('policy_types', App\Http\Controllers\PolicyTypeController::class);
+  Route::resource('vehicle_types', App\Http\Controllers\VehicleTypeController::class);
+  Route::resource('users', App\Http\Controllers\UserController::class);
 });

@@ -9,7 +9,15 @@ class PolicyType extends Model
 {
     use HasFactory;
     protected $table = 'policy_types';
-    protected $fillable = ['type_name'];
+        protected $fillable = [
+            'type_name',
+            'user_id'
+        ];
+
+        public function policies()
+        {
+            return $this->hasMany(\App\Models\Policy::class, 'policy_type_id');
+        }
 
     public function policy_type()
     {
