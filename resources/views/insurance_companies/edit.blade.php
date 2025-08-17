@@ -1,6 +1,33 @@
 @extends('layouts.appPages')
 
 @section('content')
+<style>
+    /* Styling for search results */
+    .result-item {
+        padding: 8px;
+        cursor: pointer;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #ddd;
+    }
+    .result-item:hover {
+        background-color: #e9ecef;
+        color: #0056b3;
+    }
+
+    /* Form styling for a modern look */
+    .form-group label {
+        font-weight: bold;
+    }
+
+    /* Group headings */
+    .group-heading {
+        margin-top: 20px;
+        padding-bottom: 5px;
+        border-bottom: 2px solid #007bff;
+        color: #007bff;
+        font-size: 1.25rem;
+    }
+</style>
 <div class="container">
     <div class="row justify-content-center">
         <div class="col-lg-12">
@@ -12,7 +39,7 @@
                         @csrf
                         @method('PUT')
                         <div class="group-heading">Company Details</div>
-                        <div class="row">
+                        <div class="row mt-4 mb-3">
                             <div class="col-md-6 mb-3">
                                 <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
                                 <div class="input-group">
@@ -34,7 +61,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="row">
+                        <div class="row mt-4 mb-3">
                             <div class="col-md-6 mb-3">
                                 <label for="phone" class="form-label">Phone</label>
                                 <div class="input-group">
