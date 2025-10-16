@@ -85,7 +85,12 @@ class HomeController extends Controller
             return ($totalPolicies > 0) ? ($count / $totalPolicies) * 100 : 0;
         }, $policyCounts);
 
+        $expiringPolicies = \App\Models\Policy::whereBetween('end_date', [now(), now()->addDays(30)])
+            ->orderBy('end_date', 'asc')
+            ->take(10)
+            ->get();
+
         // Pass all necessary variables to the view
-        return view('home', compact('metrics', 'salesData', 'salesLabels', 'policyLabels', 'policyCounts', 'policyPercentages', 'startDate', 'endDate'));
+        return view('home', compact('metrics', 'salesData', 'salesLabels', 'policyLabels', 'policyCounts', 'policyPercentages', 'startDate', 'endDate', 'expiringPolicies'));
     }
 }

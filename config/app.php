@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 return [
 
@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('Midrash Insurance', 'Midrash Insurance'),
+    'name' => env('APP_NAME', ' Emely Insurance'),
 
     /*
     |--------------------------------------------------------------------------

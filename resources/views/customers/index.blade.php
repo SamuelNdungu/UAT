@@ -9,7 +9,7 @@
                 <div class="card-box bg-cyan card-clickable" style="border-radius: 5px;" onclick="window.location='{{ route('customers.index', ['filter' => 'total']) }}'">
                     <div class="inner">
                         <h3>  {{ $metrics['totalCustomers'] }} </h3>
-                        <p> Total Customers </p>
+                        <p> Total </p>
                     </div>
                     <div class="icon">
                         <i class="fa fa-chart-line" aria-hidden="true"></i>
@@ -22,7 +22,7 @@
                 <div class="card-box bg-green card-clickable" style="border-radius: 5px;" onclick="window.location='{{ route('customers.index', ['filter' => 'active']) }}'">
                     <div class="inner">
                         <h3>  {{ $metrics['activeCustomers'] }}</h3>
-                        <p>Active Customers </p>
+                        <p>Active </p>
                     </div>
                     <div class="icon">
                         <i class="fa fa-hand-holding-usd" aria-hidden="true"></i>
@@ -35,7 +35,7 @@
                 <div class="card-box bg-orange card-clickable" style="border-radius: 5px;" onclick="window.location='{{ route('customers.index', ['filter' => 'inactive']) }}'">
                     <div class="inner">
                         <h3>  {{ $metrics['inactiveCustomers'] }} </h3>
-                        <p> Inactive Customers </p>
+                        <p> Inactive </p>
                     </div>
                     <div class="icon">
                         <i class="fa fa-file-alt" aria-hidden="true"></i>
@@ -47,8 +47,8 @@
             <div class="col-lg-3 col-sm-6">
                 <div class="card-box bg-red card-clickable" style="border-radius: 5px;" onclick="window.location='{{ route('customers.index', ['filter' => 'claims']) }}'">
                     <div class="inner">
-                        <h3> 50 </h3>
-                        <p> Claims </p>
+                        <h3>0</h3>
+                        <p> Blacklisted </p>
                     </div>
                     <div class="icon">
                         <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
@@ -119,12 +119,15 @@
                                 <td>{{ $customer->customer_type === 'Individual' ? $customer->occupation : $customer->industry_segment }}</td>
                                 <td>{{ $customer->documents }}</td>
                                 <td>{{ $customer->status == 1 ? 'Active' : 'Inactive' }}</td>
-                                <td style="white-space: nowrap; position: sticky; right: 0; background-color: white; z-index: 100; padding: 5px; border-left: 1px solid #ddd;">
+                                <td class="text-center" style="white-space: nowrap; position: sticky; right: 0; background-color: white; z-index: 100; padding: 5px; border-left: 1px solid #ddd;">
                                     <a href="{{ route('customers.show', $customer->id) }}" class="btn btn-info btn-sm" aria-label="View" title="View" style="padding: 1px 8px;">
                                         <i class="fas fa-eye" aria-hidden="true" style="font-size: 0.8rem;"></i>
                                     </a>
                                     <a href="{{ route('customers.edit', $customer->id) }}" class="btn btn-warning btn-sm" aria-label="Edit" title="Edit" style="padding: 1px 8px;">
                                         <i class="fas fa-pencil-alt" aria-hidden="true" style="font-size: 0.8rem;"></i>
+                                    </a>
+                                    <a href="{{ route('customers.statement', $customer->id) }}" class="btn btn-secondary btn-sm" aria-label="Statement" title="Statement" style="padding: 1px 8px;">
+                                        <i class="fas fa-file-invoice" aria-hidden="true" style="font-size: 0.8rem;"></i>
                                     </a>
                                     <form action="{{ route('customers.destroy', $customer->id) }}" method="POST" style="display:inline;" onsubmit="return confirmDelete()">
                                         @csrf
@@ -133,6 +136,9 @@
                                             <i class="fas fa-trash" aria-hidden="true" style="font-size: 0.8rem;"></i>
                                         </button>
                                     </form>
+
+                                 
+ 
                                 </td>
                             </tr>
                             @endforeach

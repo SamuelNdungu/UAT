@@ -56,8 +56,7 @@
             </a>
         </div>
     </div>
-    <hr class="settings-divider mt-4 mb-4">
-    <p class="mt-4 text-center text-muted">More admin menus can be added here as needed.</p>
+ 
 </div>
 <style>
 .settings-container {

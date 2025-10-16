@@ -127,12 +127,16 @@
     </div>
 
     <!-- Action Buttons -->
+    @php
+        $actionButtons = [
+            ['url' => route('leads.index'), 'label' => 'Go Back', 'icon' => 'fas fa-arrow-left', 'variant' => 'primary', 'attrs' => ['title' => 'Back to list', 'aria-label' => 'Back to list']],
+            ['url' => route('leads.edit', $lead->id), 'label' => 'Edit Lead', 'icon' => 'fas fa-edit', 'variant' => 'warning', 'attrs' => ['title' => 'Edit lead', 'aria-label' => 'Edit lead']],
+        ];
+    @endphp
+
     <div class="row">
-        <div class="col-md-2">
-            <a href="{{ route('leads.index') }}" class="btn btn-primary">Go Back</a>
-        </div>
-        <div class="col-md-2">
-            <a href="{{ route('leads.edit', $lead->id) }}" class="btn btn-warning">Edit Lead</a>
+        <div class="col-12">
+            @include('shared.action-buttons', ['buttons' => $actionButtons])
         </div>
     </div>
 </div>

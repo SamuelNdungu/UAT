@@ -9,47 +9,66 @@ class Claim extends Model
 {
     use HasFactory;
 
+    // Standardized statuses
+    public const STATUS_OPEN = 'open';
+    public const STATUS_INVESTIGATING = 'investigating';
+    public const STATUS_SETTLED = 'settled';
+    public const STATUS_REJECTED = 'rejected';
+    public const STATUS_CLOSED = 'closed';
+
+    // Add/ensure these attributes are mass assignable
     protected $fillable = [
-        'fileno', 
-        'claim_number',
-        'customer_code',
         'policy_id',
-        'reported_date',
-        'type_of_loss',
-        'loss_details',
-        'loss_date',
-        'followup_date',
-        'claimant_name',
-        'amount_claimed',
-        'amount_paid',
+        'customer_id',
+        'claim_no',
+        'date_of_loss',
+        'reported_at',
         'status',
-        'upload_file',
-        'user_id',
+        'description',
+        'amount',
+        'attachments', // JSON metadata for uploaded files
+        'created_by',
+        // ...other existing fields...
     ];
     protected $dates = [
-        'reported_date',
-        'loss_date',
-        'followup_date',
+        'reported_at',
+        'date_of_loss',
         // Add any other date fields here
+    ];
+    // Casts for convenient usage
+    protected $casts = [
+        'date_of_loss' => 'date',
+        'reported_at' => 'datetime',
+        'amount' => 'float',
+        'attachments' => 'array',
     ];
 
     // Relationships
     public function policy()
     {
-        return $this->belongsTo(Policy::class);
+        return $this->belongsTo(Policy::class, 'policy_id');
     }
 
-    public function events()
-    {
-        return $this->hasMany(ClaimEvent::class, 'claim_id');
-    }
-
-    
     public function customer()
-{
-    return $this->belongsTo(Customer::class, 'customer_code', 'customer_code');
-}
+    {
+        return $this->belongsTo(\App\Models\Customer::class, 'customer_id');
+    }
 
- 
+    // Human-readable status list
+    public static function statusList(): array
+    {
+        return [
+            self::STATUS_OPEN => 'Open',
+            self::STATUS_INVESTIGATING => 'Investigating',
+            self::STATUS_SETTLED => 'Settled',
+            self::STATUS_REJECTED => 'Rejected',
+            self::STATUS_CLOSED => 'Closed',
+        ];
+    }
 
+    // Accessor for status label
+    public function getStatusLabelAttribute()
+    {
+        return self::statusList()[$this->status] ?? ucfirst($this->status);
+    }
 }

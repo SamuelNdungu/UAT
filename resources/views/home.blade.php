@@ -202,6 +202,7 @@
                 },
                 plugins: {
                     datalabels: {
+                        display: true,
                         color: '#000',  // Label text color
                         formatter: function(value, context) {
                             return 'KES ' + value.toLocaleString();
@@ -225,7 +226,7 @@
         
         // Dynamic data for the pie chart
         var policyLabels = @json($policyLabels);  // Dynamic policy types
-        var policyCounts = @json($policyPercentages);  // Dynamic policy percentages
+        var policyData = @json($policyCounts);  // Use raw counts instead of percentages
         
         var policyDistributionChart = new Chart(ctx2, {
             type: 'pie',
@@ -233,7 +234,7 @@
                 labels: policyLabels,  // Dynamic policy types
                 datasets: [{
                     label: ' ',
-                    data: policyCounts,  // Dynamic policy percentages
+                    data: policyData,  // Use raw counts
                     backgroundColor: [
                         'rgba(255, 99, 132, 0.5)',
                         'rgba(54, 162, 235, 0.5)',
@@ -259,10 +260,11 @@
                         position: 'bottom'
                     },
                     datalabels: {
+                        display: true,
                         color: '#000',  // Label text color
                         formatter: (value, ctx) => {
                             let label = ctx.chart.data.labels[ctx.dataIndex];  // Get the label
-                            return label + ': ' + value.toFixed(1) + '%';  // Return label with percentage
+                            return label + ': ' + value;  // Display the raw count
                         },
                         anchor: 'end',  // Anchor the labels outside
                         align: 'end',  // Align the labels outside
@@ -278,4 +280,13 @@
         });
     </script>
 
+    <!-- Initialize Date Range Picker -->
+    <script>
+        $(document).ready(function() {
+            $('.input-daterange').datepicker({
+                format: 'dd-mm-yyyy',
+                autoclose: true
+            });
+        });
+    </script>
 @endsection

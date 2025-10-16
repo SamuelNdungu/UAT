@@ -225,3 +225,170 @@ body{
 .sidebar-collapsed .sb-sidenav-footer {
     text-align: center;
 }
+
+.card-box {
+    border-radius: 16px;
+    box-shadow: 0 4px 24px 0 rgba(60, 72, 88, 0.12);
+    margin-bottom: 24px;
+    padding: 28px 22px 18px 22px;
+    transition: box-shadow 0.2s, transform 0.2s;
+    background: #fff;
+}
+
+.card-box:hover {
+    box-shadow: 0 8px 32px 0 rgba(60, 72, 88, 0.18);
+    transform: translateY(-2px) scale(1.02);
+}
+
+.card-box .inner {
+    margin-bottom: 12px;
+}
+
+.card-box-footer {
+    border-top: 1px solid #e0e6ed;
+    padding-top: 10px;
+    margin-top: 10px;
+    font-size: 0.95rem;
+    color: #4f8cff;
+    text-decoration: none;
+    display: block;
+    transition: color 0.2s;
+}
+
+.card-box-footer:hover {
+    color: #0056b3;
+    text-decoration: underline;
+}
+
+.icon {
+    font-size: 2.2rem;
+    color: #4f8cff;
+    background: rgba(79, 140, 255, 0.08);
+    border-radius: 50%;
+    padding: 10px;
+    box-shadow: 0 2px 8px 0 rgba(60, 72, 88, 0.10);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Colorful card backgrounds for dashboard cards */
+.card-box.bg-blue {
+    background: linear-gradient(135deg, #4f8cff 0%, #6ed6ff 100%);
+    color: #fff;
+}
+.card-box.bg-green {
+    background: linear-gradient(135deg, #00a65a 0%, #43e97b 100%);
+    color: #fff;
+}
+.card-box.bg-orange {
+    background: linear-gradient(135deg, #f39c12 0%, #ffd86b 100%);
+    color: #fff;
+}
+.card-box.bg-red {
+    background: linear-gradient(135deg, #d9534f 0%, #ff6a6a 100%);
+    color: #fff;
+}
+.card-box.bg-purple {
+    background: linear-gradient(135deg, #6f42c1 0%, #b47cff 100%);
+    color: #fff;
+}
+.card-box.bg-cyan {
+    background: linear-gradient(135deg, #17a2b8 0%, #6ed6ff 100%);
+    color: #fff;
+}
+.card-box.bg-gold {
+    background: linear-gradient(135deg, #d1b31e 0%, #ffe066 100%);
+    color: #fff;
+}
+.card-box.bg-pink {
+    background: linear-gradient(135deg, #e83e8c 0%, #ffb6c1 100%);
+    color: #fff;
+}
+.card-box.bg-teal {
+    background: linear-gradient(135deg, #20c997 0%, #a8ffeb 100%);
+    color: #fff;
+}
+.card-box.bg-brown {
+    background: linear-gradient(135deg, #795548 0%, #bca18d 100%);
+    color: #fff;
+}
+.card-box.bg-yellow {
+    background: linear-gradient(135deg, #ffc107 0%, #fff3cd 100%);
+    color: #fff;
+}
+
+/* Add to dashboard.css for custom divider styling */
+.section-divider {
+    border: 2px;
+    border-top: 2px solid #e0e6ed;
+    margin: 32px 0;
+    opacity: 0.8;
+    border-radius: 2px;
+}
+
+/* Classic thin divider */
+.section-divider-thin {
+    border: none;
+    border-top: 1px solid #bfc9d4;
+    margin: 24px 0;
+    opacity: 0.7;
+}
+
+/* Dotted divider */
+.section-divider-dotted {
+    border: none;
+    border-top: 2px dotted #6ed6ff;
+    margin: 32px 0;
+    opacity: 0.8;
+}
+
+/* Gradient divider */
+.section-divider-gradient {
+    border: none;
+    height: 4px;
+    background: linear-gradient(90deg, #4f8cff 0%, #6ed6ff 100%);
+    margin: 32px 0;
+    border-radius: 2px;
+    opacity: 0.9;
+}
+
+/* Shadow divider */
+.section-divider-shadow {
+    border: none;
+    height: 6px;
+    box-shadow: 0 2px 8px 0 rgba(60, 72, 88, 0.15);
+    background: #e0e6ed;
+    margin: 36px 0;
+    border-radius: 3px;
+}
+
+/* Double line divider */
+.section-divider-double {
+    border: none;
+    border-top: 3px double #4f8cff;
+    margin: 32px 0;
+    opacity: 0.8;
+}
+
+/* Wavy SVG divider (use in blade as <div class="section-divider-svg"></div>) */
+.section-divider-svg {
+    width: 100%;
+    height: 16px;
+    background: url('data:image/svg+xml;utf8,<svg width="100%" height="16" xmlns="http://www.w3.org/2000/svg"><path d="M0 8 Q 25 0, 50 8 T 100 8 T 150 8 T 200 8 T 250 8 T 300 8 T 350 8 T 400 8" stroke="%234f8cff" stroke-width="2" fill="none"/></svg>') repeat-x;
+    margin: 32px 0;
+    opacity: 0.7;
+}
+
+/* Table row hover effect for all dashboard tables */
+.table tr:hover, .table-striped tbody tr:hover {
+    background: linear-gradient(90deg, #e0e6ed 0%, #f8fafc 100%);
+    box-shadow: 0 2px 8px 0 rgba(79, 140, 255, 0.08);
+    transition: background 0.2s, box-shadow 0.2s;
+}
+
+/* Optional: Slightly bolder border on hover */
+.table tr:hover td, .table-striped tbody tr:hover td {
+    border-bottom: 2px solid #4f8cff;
+}

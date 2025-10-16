@@ -7,7 +7,7 @@
     <!-- CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ config('app.name', 'Bima-Connect') }}</title>
+    <title>{{ config('app.name', 'Emely Insurance') }}</title>
         <!-- Reference the custom CSS file -->
         <link href="{{ asset('assets/css/dashboard.css') }}" rel="stylesheet">
         <!-- Chart.js -->
@@ -49,7 +49,7 @@
         <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
             <!-- Navbar Brand-->
             <a class="navbar-brand" href="{{ url('/home') }}">
-                        {{ config('app.name', 'Bima-Connect') }}
+                        {{ config('app.name', 'Emely Insurance') }}
                     </a>
             <!-- Sidebar Toggle-->
             <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#!"><i class="fas fa-bars"></i></button>

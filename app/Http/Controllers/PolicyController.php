@@ -8,37 +8,57 @@ use App\Models\Customer;
 use App\Models\PolicyTypes;
 use App\Models\Insurer; 
 use Illuminate\Support\Facades\Auth;
-use Dompdf\Dompdf;
-use Dompdf\Options;
-use PDF;
+use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
+use PDF; // Assuming this is laravel-dompdf or similar
 
 class PolicyController extends Controller
 {
+    /**
+     * Show the form for creating a new policy.
+     */
     public function getCreatePolicyForm()
     {
-        $insurers = DB::table('insurers')->pluck('name', 'id');
-        $availablePolicyTypes = DB::table('policy_types')->orderBy('type_name', 'asc')->pluck('type_name', 'id');
+        // Use Model eloquent methods for consistency where possible
+        $insurers = Insurer::pluck('name', 'id');
+        $availablePolicyTypes = PolicyTypes::orderBy('type_name', 'asc')->pluck('type_name', 'id');
+        
+        // Fetch vehicle data
         $availableVehicleTypes = DB::table('vehicle_types')->distinct()->pluck('make', 'make');
-        $vehicleModels = DB::table('vehicle_types')->select('make', 'model')->get(); // Ensure 'make' and 'model' are selected
+        $vehicleModels = DB::table('vehicle_types')->select('make', 'model')->get();
 
         return view('policies.create', compact('insurers', 'availablePolicyTypes', 'availableVehicleTypes', 'vehicleModels'));
     }
 
+    /**
+     * Store a newly created policy in storage.
+     * * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     * @throws \Illuminate\Validation\ValidationException
+     */
     public function store(Request $request)
     {
-        // Log the incoming request data for debugging purposes
-        \Log::info('Received data: ', $request->all());
+        \Log::info('PolicyController@store: Received data: ', $request->all());
+
+        $isAjax = $request->ajax() || $request->wantsJson();
+        
+        // Calculate the minimum allowed start date: Jan 1st of the current year.
+        $minStartDate = Carbon::now()->startOfYear()->format('Y-m-d'); 
+        
         try {
-            // Define validation rules for the incoming request
+            // Define validation rules
             $validatedData = $request->validate([
                 'customer_code' => 'required|string|max:255',
                 'customer_name' => 'required|string|max:255',
-                'policy_type_id' => 'required|integer',
+                'policy_type_id' => 'required|integer|exists:policy_types,id', // Added exists rule
                 'coverage' => 'nullable|string|max:255',
-                'start_date' => 'required|date',
-                'days' => 'nullable|integer',
-                'end_date' => 'nullable|date',
-                'insurer_id' => 'required|integer',
+                
+                // Date Restrictions
+                'start_date' => ['required', 'date', "after_or_equal:{$minStartDate}"],
+                'days' => 'required|integer|min:1', 
+                'end_date' => ['required', 'date', 'after:start_date'],
+                
+                'insurer_id' => 'required|integer|exists:insurers,id', // Added exists rule
                 'policy_no' => 'nullable|string|max:255',
                 'reg_no' => 'nullable|string|max:255',
                 'make' => 'nullable|string|max:255',
@@ -46,8 +66,8 @@ class PolicyController extends Controller
                 'yom' => 'nullable|integer',
                 'cc' => 'nullable|integer',
                 'body_type' => 'nullable|string|max:255',
-                'chassisno' => 'nullable|string|regex:/^[a-zA-Z0-9-]*$/|max:255',
-                'engine_no' => 'nullable|string|regex:/^[a-zA-Z0-9-]*$/|max:255',
+                'chassisno' => 'nullable|string|regex:/^[a-zA-Z0-9-]*$/|max:255', // Standardized regex
+                'engine_no' => 'nullable|string|regex:/^[a-zA-Z0-9-]*$/|max:255', // Standardized regex
                 'description' => 'nullable|string',
                 'insured' => 'nullable|string|max:255',
                 'cover_details' => 'nullable|string',
@@ -74,109 +94,157 @@ class PolicyController extends Controller
                 'pvt' => 'nullable|numeric',
                 'courtesy_car' => 'nullable|numeric',
                 'training_levy' => 'nullable|numeric',
-
             ]);
 
-            \Log::info('Validation passed:', $validatedData);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            \Log::error('Validation failed:', $e->errors());
+            \Log::info('PolicyController@store: Validation passed.', $validatedData);
+        } catch (ValidationException $e) {
+            \Log::error('PolicyController@store: Validation failed (Pre-DB transaction):', $e->errors());
+            // Re-throw ValidationException to trigger the default Laravel/AJAX error response
             throw $e;
         }
 
         try {
-            // Begin database transaction
             DB::beginTransaction();
 
-            // Generate unique `fileno`
+            // --- BUSINESS LOGIC: DATE CONSISTENCY CHECK (Exclusive Day Count) ---
+            $startDate = Carbon::parse($validatedData['start_date']);
+            $endDate = Carbon::parse($validatedData['end_date']);
+            
+            $days = (int) $validatedData['days']; 
+            $calculatedExclusiveDays = $startDate->diffInDays($endDate); 
+            
+            \Log::debug('PolicyController@store: Date Check | Calculated Exclusive Days: ' . $calculatedExclusiveDays . ' | Input Days: ' . $days);
+
+            // Using non-strict comparison (`!=`) to match numeric values regardless of type (e.g., int vs string)
+            if ($days != $calculatedExclusiveDays) {
+                $errorMessage = "The Policy Days field ({$days}) must match the exclusive day count between the Start Date and End Date ({$calculatedExclusiveDays} days). Please review the dates or the Policy Days value.";
+
+                throw ValidationException::withMessages([
+                    'days' => [$errorMessage],
+                    'end_date' => [$errorMessage]
+                ]);
+            }
+            
+            // --- GENERATE UNIQUE FILENO ---
             $lastPolicy = Policy::latest()->first();
             $lastFileNo = $lastPolicy ? $lastPolicy->fileno : 'FN-00000';
             $lastFileNoNumber = (int) substr($lastFileNo, 3);
             $newFileNoNumber = $lastFileNoNumber + 1;
-
-            // Ensure file number uniqueness in case of concurrent requests
+            
             do {
                 $newFileNo = 'FN-' . str_pad($newFileNoNumber, 5, '0', STR_PAD_LEFT);
                 $newFileNoNumber++;
             } while (Policy::where('fileno', $newFileNo)->exists());
 
-            // Handle file uploads and document descriptions
+            // --- HANDLE FILE UPLOADS ---
             $documents = [];
-            $documentDescriptions = $request->input('document_description', []);
-
-            // Filter out any null or empty values from document_descriptions
-            $documentDescriptions = array_filter($documentDescriptions, function($value) {
-                return $value !== null && $value !== '';
-            });
+            $documentDescriptions = array_filter($request->input('document_description', [])); // Filter null/empty descriptions
 
             if ($request->hasFile('upload_file')) {
                 foreach ($request->file('upload_file') as $key => $file) {
-                    try {
-                        $originalFileName = $file->getClientOriginalName();
-                        $path = $file->storeAs('uploads', $originalFileName, 'public');
-    
-                        // Log the file upload path for debugging
-                        \Log::info('Uploaded file path:', [$path]);
-    
-                        // Get the description for this file
-                        $description = isset($documentDescriptions[$key]) ? $documentDescriptions[$key] : null;
-    
-                        $documents[] = [
-                            'name' => $originalFileName,
-                            'path' => $path,
-                            'description' => $description,
-                        ];
-                    } catch (\Exception $e) {
-                        \Log::error('Error uploading file:', [
-                            'message' => $e->getMessage(),
-                            'trace' => $e->getTraceAsString(),
-                        ]);
+                    // Check if file is valid before attempting to store
+                    if (!$file->isValid()) {
+                        throw new \Exception("Uploaded file at index {$key} is invalid.");
                     }
+                    
+                    $originalFileName = $file->getClientOriginalName();
+                    // Store the file in the 'uploads' directory under the 'public' disk
+                    $path = $file->storeAs('uploads', $originalFileName, 'public');
+
+                    $description = $documentDescriptions[$key] ?? null;
+
+                    $documents[] = [
+                        'name' => $originalFileName,
+                        'path' => $path,
+                        'description' => $description,
+                    ];
                 }
             }
-    
-
-            // Assign additional fields
+            
+            // --- PREPARE FINAL DATA AND SAVE ---
             $validatedData['user_id'] = Auth::id();
             $validatedData['fileno'] = $newFileNo;
-            $validatedData['bus_type'] = 'New';
-            $validatedData['document_description'] = $documentDescriptions;
+            $validatedData['bus_type'] = $validatedData['bus_type'] ?? 'New'; // Assuming 'bus_type' can be in validatedData or defaulted
             $validatedData['documents'] = json_encode($documents);
+            
+            // Remove auxiliary data not in the Policy model
+            unset($validatedData['document_description']); 
+            if (isset($validatedData['upload_file'])) {
+                unset($validatedData['upload_file']); 
+            }
 
-            // Debugging: Check final data before saving
-            \Log::info('Data to be saved:', $validatedData);
-
-            // Save the policy
             $newPolicy = Policy::create($validatedData);
-
-            // Commit transaction if everything is successful
+            
             DB::commit();
 
-            // Redirect or respond based on context
-            return redirect()->route('policies.index')->with('success', 'Policy created successfully. New File Number: ' . $newPolicy->fileno);
+            // --- RESPONSE ---
+            if ($isAjax) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Policy created successfully. New File Number: ' . $newPolicy->fileno,
+                    'redirect' => route('policies.index')
+                ]);
+            }
+            
+            return redirect()->route('policies.index')
+                ->with('success', 'Policy created successfully. New File Number: ' . $newPolicy->fileno);
+                
         } catch (\Exception $e) {
-            // Rollback transaction if an error occurs
             DB::rollBack();
-
-            \Log::error('Error saving policy:', [
+            \Log::error('PolicyController@store: Error saving policy (DB transaction failed):', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            // Redirect back with error message and old input data for user convenience
-            return redirect()->back()->with('error', 'An error occurred while saving the policy.')->withInput();
+            $isValidationError = $e instanceof ValidationException;
+            $errorMessage = $isValidationError 
+                                ? 'Validation failed. Please correct the highlighted fields.'
+                                : (config('app.debug') ? $e->getMessage() : 'An internal error occurred while saving the policy. Please check the logs.');
+            
+            if ($isAjax) {
+                return response()->json([
+                    'success' => false,
+                    'error' => $errorMessage,
+                    'errors' => $isValidationError ? $e->errors() : []
+                ], $isValidationError ? 422 : 500);
+            }
+            
+            return redirect()->back()
+                ->with('error', $errorMessage)
+                ->withInput();
         }
     }
 
+    /**
+     * Display a listing of the policy resource.
+     * * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\View\View
+     */
     public function index(Request $request)
     {
-        $filter = $request->query('filter', 'total'); // Default to 'total' if no filter is provided
+        $filter = $request->query('filter', 'total'); 
+        $search = $request->query('search');
+        $perPage = $request->input('per_page', 10); 
 
         // Initialize query builder for policies
         $query = Policy::select('policies.*', 'policy_types.type_name as policy_type_name', 'insurers.name as insurer_name')
             ->join('policy_types', 'policies.policy_type_id', '=', 'policy_types.id')
             ->join('insurers', 'policies.insurer_id', '=', 'insurers.id');
 
-        // Apply filter based on the selected card
+        // Apply search
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('policies.fileno', 'like', "%{$search}%")
+                  ->orWhere('policies.customer_code', 'like', "%{$search}%")
+                  ->orWhere('policies.customer_name', 'like', "%{$search}%")
+                  ->orWhere('policies.policy_no', 'like', "%{$search}%")
+                  ->orWhere('policies.reg_no', 'like', "%{$search}%")
+                  ->orWhere('policies.make', 'like', "%{$search}%")
+                  ->orWhere('policies.model', 'like', "%{$search}%");
+            });
+        }
+
+        // Apply filter
         switch ($filter) {
             case 'motor':
                 // Assuming motor policies have IDs 35, 36, 37
@@ -187,31 +255,58 @@ class PolicyController extends Controller
                 $query->whereNotIn('policy_type_id', [35, 36, 37]);
                 break;
             case 'claims':
-                // Policies with claims
+                // Policies with claims (requires Policy model to have a 'claims' relationship)
                 $query->whereHas('claims');
+                break;
+            case 'expired':
+                // Policies that have expired
+                $query->where('end_date', '<', now());
                 break;
             case 'total':
             default:
-                // No filter applied, retrieve all policies
                 break;
         }
 
-        // Fetch filtered policies
-        $policies = $query->orderBy('fileno', 'desc')->get();
+        // Apply custom numeric ordering for fileno
+        if (\Schema::hasColumn((new Policy())->getTable(), 'fileno')) {
+            try {
+                $driver = DB::getPdo()->getAttribute(\PDO::ATTR_DRIVER_NAME);
+            } catch (\Exception $e) {
+                $driver = null;
+            }
 
-        // Calculate policy metrics
+            if ($driver === 'pgsql') {
+                $query->orderByRaw("CAST(regexp_replace(policies.fileno, '\\D', '', 'g') AS INTEGER) DESC");
+            } elseif ($driver === 'mysql') {
+                $query->orderByRaw("CAST(SUBSTRING(policies.fileno, 4) AS UNSIGNED) DESC");
+            } else {
+                $query->orderBy('policies.fileno', 'desc');
+            }
+        } elseif (\Schema::hasColumn((new Policy())->getTable(), 'created_at')) {
+            $query->orderBy('policies.created_at', 'desc');
+        } else {
+            $query->orderBy('policies.id', 'desc');
+        }
+
+        $policies = $query->paginate($perPage);
+
+        // Calculate policy metrics (NOTE: This involves multiple queries - consider optimization/caching)
         $metrics = [
             'totalPolicies' => Policy::count(),
-            'motorPolicies' => Policy::whereIn('policy_type_id', [35, 36, 37])->count(), // Motor policies
-            'nonMotorPolicies' => Policy::whereNotIn('policy_type_id', [35, 36, 37])->count(), // Non-motor policies
-            'policiesWithClaims' => Policy::whereHas('claims')->count(), // Policies with claims
-            'expiredPolicies' => Policy::where('end_date', '<', now())->count(), // Expired policies
+            'motorPolicies' => Policy::whereIn('policy_type_id', [35, 36, 37])->count(),
+            'nonMotorPolicies' => Policy::whereNotIn('policy_type_id', [35, 36, 37])->count(),
+            'policiesWithClaims' => Policy::whereHas('claims')->count(), 
+            'expiredPolicies' => Policy::where('end_date', '<', now())->count(),
         ];
 
-        // Pass policies and metrics to the view
-        return view('policies.index', compact('policies', 'metrics'));
+        return view('policies.index', compact('policies', 'metrics', 'perPage', 'search', 'filter'));
     }
 
+    /**
+     * Display the specified policy.
+     * * @param int $id
+     * @return \Illuminate\View\View
+     */
     public function show($id)
     {
         $policy = Policy::select('policies.*', 'policy_types.type_name as policy_type_name', 'insurers.name as insurer_name')
@@ -220,24 +315,29 @@ class PolicyController extends Controller
             ->where('policies.id', $id)
             ->firstOrFail();
 
-        // Decode the documents JSON string to an array
-        $policy->documents = json_decode($policy->documents, true) ?? [];
+        // Safely decode the documents field
+        $docs = $policy->documents ?? '[]';
+        $policy->documents = json_decode($docs, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($policy->documents)) {
+            $policy->documents = [];
+        }
 
         return view('policies.show', compact('policy'));
     }
 
+    /**
+     * Generate and stream a PDF of the debit note for the policy.
+     * * @param int $id
+     * @return \Illuminate\Http\Response
+     */
     public function printDebitNote($id)
     {
-        set_time_limit(120); // Increase execution time
+        set_time_limit(120);
 
-        $policy = Policy::with('policyType', 'insurer')->find($id);
-        if (!$policy) {
-            abort(404);
-        }
-
-        // Pass the policy to the view directly
+        $policy = Policy::with('policyType', 'insurer', 'customer')->findOrFail($id);
+        
         $pdf = PDF::loadView('policies.debit_note_pdf', ['policy' => $policy])
-                   ->setPaper('a4', 'portrait') // Set paper size and orientation
+                   ->setPaper('a4', 'portrait')
                    ->setOptions([
                        'margin-top'    => 0,
                        'margin-right'  => 0,
@@ -245,84 +345,136 @@ class PolicyController extends Controller
                        'margin-left'   => 0,
                    ]);
 
-        // Return the PDF for printing
-        return $pdf->stream('debit_note.pdf');
+        return $pdf->stream("debit_note_{$policy->fileno}.pdf"); // Dynamic filename
     }
 
+    /**
+     * Show the form for editing the specified policy.
+     * * @param int $id
+     * @return \Illuminate\View\View
+     */
     public function edit($id)
     {
-        // Find the policy by its ID
-        $policy = Policy::findOrFail($id);
+        $policy = Policy::with('customer')->findOrFail($id);
 
-        // Fetch available policy types, insurers, and vehicle types
         $availablePolicyTypes = PolicyTypes::pluck('type_name', 'id');
         $insurers = Insurer::pluck('name', 'id');
-        $availableVehicleTypes = DB::table('vehicle_types')->distinct()->pluck('make', 'make'); // Fetch vehicle types
-        $vehicleModels = DB::table('vehicle_types')->select('make', 'model')->get(); // Fetch vehicle models
+        $availableVehicleTypes = DB::table('vehicle_types')->distinct()->pluck('make', 'make');
+        $vehicleModels = DB::table('vehicle_types')->select('make', 'model')->get();
 
-        // Decode the documents JSON string to an array
+        // Decode the documents JSON string to an array safely
         $documents = json_decode($policy->documents, true) ?? [];
 
-        // Pass the policy, available policy types, insurers, vehicle types, and documents to the view
-        return view('policies.edit', compact('policy', 'availablePolicyTypes', 'insurers', 'availableVehicleTypes', 'vehicleModels', 'documents'));
+        // Compute display-friendly values for code/name and client type
+        $displayCustomerCode = $policy->customer_code ?? optional($policy->customer)->customer_code;
+        $displayCustomerName = $policy->customer_name ?? optional($policy->customer)->customer_name;
+        // Default client_type based on customer_code existence
+        $clientType = $policy->client_type ?? ($displayCustomerCode ? 'customer' : 'lead');
+
+        return view('policies.edit', compact(
+            'policy',
+            'availablePolicyTypes',
+            'insurers',
+            'availableVehicleTypes',
+            'vehicleModels',
+            'documents',
+            'displayCustomerCode',
+            'displayCustomerName',
+            'clientType'
+        ));
     }
 
+    /**
+     * Update the specified policy in storage.
+     * * @param \Illuminate\Http\Request $request
+     * @param int $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     * @throws \Illuminate\Validation\ValidationException
+     */
     public function update(Request $request, $id)
     {
-        // Log the incoming request data for debugging purposes
-        \Log::info('Received update data: ', $request->all());
+        \Log::info('PolicyController@update: Received update data: ', $request->all());
 
-        // Define validation rules
-        $validatedData = $request->validate([
-            'customer_code' => 'required|string|max:255',
-            'customer_name' => 'required|string|max:255',
-            'policy_type_id' => 'required|integer',
-            'coverage' => 'nullable|string|max:255',
-            'start_date' => 'required|date',
-            'days' => 'nullable|integer',
-            'end_date' => 'nullable|date',
-            'insurer_id' => 'required|integer',
-            'policy_no' => 'nullable|string|max:255',
-            'reg_no' => 'nullable|string|max:255',
-            'make' => 'nullable|string|max:255',
-            'model' => 'nullable|string|max:255',
-            'yom' => 'nullable|integer',
-            'cc' => 'nullable|integer',
-            'body_type' => 'nullable|string|max:255',
-            'chassisno' => 'nullable|string|max:255',
-            'engine_no' => 'nullable|string|max:255',
-            'description' => 'nullable|string',
-            'insured' => 'nullable|string|max:255',
-            'cover_details' => 'nullable|string',
-            'notes' => 'nullable|string',
-            'sum_insured' => 'nullable|numeric',
-            'rate' => 'nullable|numeric|regex:/^\d+(\.\d+)?$/',
-            'premium' => 'nullable|numeric',
-            'c_rate' => 'nullable|numeric',
-            'commission' => 'nullable|numeric',
-            'wht' => 'nullable|numeric',
-            's_duty' => 'nullable|numeric',
-            't_levy' => 'nullable|numeric',
-            'pcf_levy' => 'nullable|numeric',
-            'policy_charge' => 'nullable|numeric',
-            'aa_charges' => 'nullable|numeric',
-            'other_charges' => 'nullable|numeric',
-            'gross_premium' => 'nullable|numeric',
-            'net_premium' => 'nullable|numeric',
-            'document_description.*' => 'nullable|string|max:255',
-            'upload_file.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf,xlsx,docx,txt|max:2048',
-            'excess' => 'nullable|numeric',
-            'ppl' => 'nullable|numeric',
-            'road_rescue' => 'nullable|numeric',
-            'pvt' => 'nullable|numeric',
-            'courtesy_car' => 'nullable|numeric',
-            'training_levy' => 'nullable|numeric',
-        ]);
+        $isAjax = $request->ajax() || $request->wantsJson();
+        $minStartDate = Carbon::now()->startOfYear()->format('Y-m-d'); 
+        
+        try {
+            // Define validation rules
+            $validatedData = $request->validate([
+                'fileno' => 'nullable|string|max:255',
+                'customer_code' => 'required|string|max:255',
+                'customer_name' => 'required|string|max:255',
+                'policy_type_id' => 'required|integer|exists:policy_types,id', // Added exists
+                'coverage' => 'nullable|string|max:255',
+                'start_date' => ['required', 'date', "after_or_equal:{$minStartDate}"],
+                'days' => 'required|integer|min:1', 
+                'end_date' => ['nullable', 'date', 'after:start_date'],
+                'insurer_id' => 'required|integer|exists:insurers,id', // Added exists
+                'policy_no' => 'nullable|string|max:255',
+                'reg_no' => 'nullable|string|max:255',
+                'make' => 'nullable|string|max:255',
+                'model' => 'nullable|string|max:255',
+                'yom' => 'nullable|integer',
+                'cc' => 'nullable|integer',
+                'body_type' => 'nullable|string|max:255',
+                'chassisno' => 'nullable|string|regex:/^[a-zA-Z0-9-]*$/|max:255', // Standardized regex
+                'engine_no' => 'nullable|string|regex:/^[a-zA-Z0-9-]*$/|max:255', // Standardized regex
+                'description' => 'nullable|string',
+                'insured' => 'nullable|string|max:255',
+                'cover_details' => 'nullable|string',
+                'notes' => 'nullable|string',
+                'sum_insured' => 'nullable|numeric',
+                'rate' => 'nullable|numeric|regex:/^\d+(\.\d+)?$/',
+                'premium' => 'nullable|numeric',
+                'c_rate' => 'nullable|numeric',
+                'commission' => 'nullable|numeric',
+                'wht' => 'nullable|numeric',
+                's_duty' => 'nullable|numeric',
+                't_levy' => 'nullable|numeric',
+                'pcf_levy' => 'nullable|numeric',
+                'policy_charge' => 'nullable|numeric',
+                'aa_charges' => 'nullable|numeric',
+                'other_charges' => 'nullable|numeric',
+                'gross_premium' => 'nullable|numeric',
+                'net_premium' => 'nullable|numeric',
+                'document_description.*' => 'nullable|string|max:255',
+                'upload_file.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf,xlsx,docx,txt|max:2048',
+                'excess' => 'nullable|numeric',
+                'ppl' => 'nullable|numeric',
+                'road_rescue' => 'nullable|numeric',
+                'pvt' => 'nullable|numeric',
+                'courtesy_car' => 'nullable|numeric',
+                'training_levy' => 'nullable|numeric',
+            ]);
+        } catch (ValidationException $e) {
+            // No need for explicit rollback here as no transaction has started
+            throw $e;
+        }
 
         DB::beginTransaction();
 
         try {
-            // Find the existing policy
+            // --- DATE CONSISTENCY CHECK ---
+            if ($request->filled('start_date') && $request->filled('end_date') && $request->filled('days')) {
+                $startDate = Carbon::parse($validatedData['start_date']);
+                $endDate = Carbon::parse($validatedData['end_date']);
+                
+                $days = (int) $validatedData['days'];
+                $diffExclusive = $startDate->diffInDays($endDate);
+                
+                \Log::debug('PolicyController@update: Date Check | Exclusive: ' . $diffExclusive . ' | Input Days: ' . $days);
+
+                // Use non-strict comparison. Check against exclusive day count as in 'store'.
+                if ($days != $diffExclusive) {
+                    $errorMessage = "The calculated duration between the start date and end date ({$diffExclusive} days exclusive) does not match the Policy Days field ({$days}).";
+
+                    throw ValidationException::withMessages([
+                        'days' => [$errorMessage],
+                        'end_date' => [$errorMessage]
+                    ]);
+                }
+            }
+            
             $policy = Policy::findOrFail($id);
 
             // Assign the user_id from the authenticated user
@@ -333,23 +485,19 @@ class PolicyController extends Controller
 
             // Handle file uploads and document descriptions
             $documents = json_decode($policy->documents, true) ?? [];
-            $documentDescriptions = $request->input('document_description', []);
+            $documentDescriptions = array_filter($request->input('document_description', []));
 
-            // Filter out any null or empty values from document_descriptions
-            $documentDescriptions = array_filter($documentDescriptions, function($value) {
-                return $value !== null && $value !== '';
-            });
-
+            // --- PROCESS NEW UPLOADS ---
             if ($request->hasFile('upload_file')) {
                 foreach ($request->file('upload_file') as $key => $file) {
+                    if (!$file->isValid()) {
+                        throw new \Exception("Uploaded file at index {$key} is invalid.");
+                    }
+                    
                     $originalFileName = $file->getClientOriginalName();
                     $path = $file->storeAs('uploads', $originalFileName, 'public');
 
-                    // Log the file upload path for debugging
-                    \Log::info('Uploaded file path:', [$path]);
-
-                    // Get the description for this file
-                    $description = isset($documentDescriptions[$key]) ? $documentDescriptions[$key] : null;
+                    $description = $documentDescriptions[$key] ?? null;
 
                     $documents[] = [
                         'name' => $originalFileName,
@@ -359,23 +507,40 @@ class PolicyController extends Controller
                 }
             }
 
-            // Ensure that descriptions for existing documents are updated
+            // The code below assumes $documentDescriptions contains an ordered list of descriptions 
+            // where the first N items correspond to the N *existing* documents plus any newly uploaded ones. 
+            // It needs careful management if documents are removed in the UI.
+            // A more robust approach would be to send back the existing document details with IDs and 
+            // only process new uploads here, but maintaining your existing structure:
+            
+            // Re-map descriptions to all documents (existing + new uploads) based on array index
+            // Assuming the frontend ensures $documentDescriptions aligns correctly.
             foreach ($documents as $index => &$document) {
-                if (isset($documentDescriptions[$index])) {
-                    $document['description'] = $documentDescriptions[$index];
-                }
+                // $documentDescriptions is an array of all descriptions from the form, new and old
+                $document['description'] = $documentDescriptions[$index] ?? null; 
             }
+            unset($document); // Unset the reference
 
             // Convert the documents array to a JSON string
             $policy->documents = json_encode($documents);
+            
+            // Remove auxiliary data not in the Policy model
+            unset($validatedData['document_description']); 
+            if (isset($validatedData['upload_file'])) {
+                unset($validatedData['upload_file']); 
+            }
 
-            // Save the updated policy to the database
             $policy->save();
-
-            \Log::info('Policy updated successfully:', $policy->toArray());
 
             DB::commit();
 
+            if ($isAjax) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Policy updated successfully.',
+                    'redirect' => route('policies.index'),
+                ]);
+            }
             return redirect()->route('policies.index')->with('success', 'Policy updated successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -383,10 +548,28 @@ class PolicyController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-            return redirect()->back()->with('error', 'An error occurred while updating the policy.');
+            
+            $isValidationError = $e instanceof ValidationException;
+            $errorMessage = $isValidationError 
+                                ? 'Validation failed. Please correct the highlighted fields.'
+                                : (config('app.debug') ? $e->getMessage() : 'An internal error occurred while updating the policy. Please check the logs.');
+
+            if ($isAjax) {
+                return response()->json([
+                    'success' => false,
+                    'error' => $errorMessage,
+                    'errors' => $isValidationError ? $e->errors() : []
+                ], $isValidationError ? 422 : 500);
+            }
+            return redirect()->back()->with('error', $errorMessage)->withInput();
         }
     }
 
+    /**
+     * Remove the specified policy from storage.
+     * * @param int $id
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function destroy($id)
     {
         $policy = Policy::findOrFail($id);
@@ -395,27 +578,28 @@ class PolicyController extends Controller
         return redirect()->route('policies.index')->with('success', 'Policy deleted successfully.');
     }
 
+    /**
+     * Search for customers by name or code.
+     * * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function search(Request $request)
     {
-        \Log::info('Search query:', ['query' => $request->input('query')]);
-    
-        $query = strtolower($request->input('query')); // Convert the search query to lowercase
+        $query = strtolower($request->input('query'));
     
         $customers = Customer::whereRaw('LOWER(first_name) LIKE ?', ["%{$query}%"])
-                    ->orWhereRaw('LOWER(last_name) LIKE ?', ["%{$query}%"])
-                    ->orWhereRaw('LOWER(corporate_name) LIKE ?', ["%{$query}%"])
-                    ->orWhereRaw('LOWER(customer_code) LIKE ?', ["%{$query}%"])
-                    ->get(['customer_code', 'first_name', 'last_name', 'corporate_name', 'customer_type']);
+            ->orWhereRaw('LOWER(last_name) LIKE ?', ["%{$query}%"])
+            ->orWhereRaw('LOWER(corporate_name) LIKE ?', ["%{$query}%"])
+            ->orWhereRaw('LOWER(customer_code) LIKE ?', ["%{$query}%"])
+            ->get(['customer_code', 'first_name', 'last_name', 'corporate_name', 'customer_type']);
     
-        // Since we now have the accessor, Laravel will automatically use it
+        // Transform the collection to use the customer_name accessor if defined
         $customers->transform(function ($customer) {
             return [
                 'customer_code' => $customer->customer_code,
-                'customer_name' => $customer->customer_name, // Uses the accessor
+                'customer_name' => $customer->customer_name, // Uses the Customer model accessor
             ];
         });
-    
-        \Log::info('Search results:', ['customers' => $customers]);
     
         return response()->json($customers);
     }

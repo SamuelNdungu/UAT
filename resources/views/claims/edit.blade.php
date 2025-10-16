@@ -172,6 +172,60 @@
                     <input type="file" name="upload_file" class="form-control">
                 </div>
 
+                {{-- Existing attachments (preview) --}}
+                @if(!empty($claim->attachments) && is_array($claim->attachments))
+                    <div class="group-heading bg-primary text-white p-2 mb-2">Existing Attachments</div>
+                    <div class="mb-3 d-flex flex-wrap gap-2">
+                        @foreach($claim->attachments as $idx => $att)
+                            @php
+                                $path = $att['path'] ?? $att['file'] ?? null;
+                                $name = $att['original_name'] ?? ($att['name'] ?? basename($path ?? ''));
+                                $url = $path ? asset('storage/' . $path) : null;
+                                $ext = $path ? strtolower(pathinfo($path, PATHINFO_EXTENSION)) : null;
+                            @endphp
+
+                            <div class="card text-center" style="width:120px;">
+                                @if($url && in_array($ext, ['jpg','jpeg','png','gif']))
+                                    <a href="{{ $url }}" target="_blank" class="d-block" style="height:80px; overflow:hidden;">
+                                        <img src="{{ $url }}" alt="{{ $name }}" style="width:100%; height:80px; object-fit:cover;">
+                                    </a>
+                                @elseif($url && $ext === 'pdf')
+                                    <a href="{{ $url }}" target="_blank" class="d-flex align-items-center justify-content-center" style="height:80px;">
+                                        <i class="fas fa-file-pdf fa-2x text-danger"></i>
+                                    </a>
+                                @else
+                                    <a href="{{ $url ?? '#' }}" target="_blank" class="d-flex align-items-center justify-content-center" style="height:80px;">
+                                        <i class="fas fa-file fa-2x"></i>
+                                    </a>
+                                @endif
+
+                                <div class="card-body p-2">
+                                    <a href="{{ $url ?? '#' }}" download class="small text-truncate d-block">{{ \Illuminate\Support\Str::limit($name, 24) }}</a>
+                                    {{-- Optional: show filename and an index (non-destructive preview) --}}
+                                    <div class="form-check mt-1">
+                                        <input class="form-check-input" type="checkbox" name="remove_attachments[]" value="{{ $idx }}" id="remove_att_{{ $idx }}">
+                                        <label class="form-check-label small" for="remove_att_{{ $idx }}">Remove</label>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
+                {{-- Standardized action buttons --}}
+                @php
+                    $actionButtons = [
+                        ['url' => route('claims.index'), 'label' => 'Go Back', 'icon' => 'fas fa-arrow-left', 'variant' => 'primary', 'attrs' => ['title' => 'Back to list', 'aria-label' => 'Back to list']],
+                        ['url' => route('claims.show', $claim->id), 'label' => 'View', 'icon' => 'fas fa-eye', 'variant' => 'secondary', 'attrs' => ['title' => 'View claim', 'aria-label' => 'View claim']],
+                    ];
+                @endphp
+
+                <div class="row mb-3">
+                    <div class="col-12">
+                        @include('shared.action-buttons', ['buttons' => $actionButtons])
+                    </div>
+                </div>
+
                 <!-- Event Section -->
                 <div class="group-heading">Events</div>
                 <div id="events">

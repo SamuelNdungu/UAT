@@ -10,12 +10,13 @@ use App\Models\Receipt;
 use App\Models\PolicyTypes;
 use App\Models\PolicyType;
 use App\Models\Allocation;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use App\Models\Claim;
-use App\Models\ClaimEvent;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 
 class ClaimController extends Controller
@@ -115,71 +116,136 @@ class ClaimController extends Controller
 
 
 
+    /**
+     * Store a newly created claim.
+     */
     public function store(Request $request)
     {
-        // Log the incoming request data for debugging purposes
-        \Log::info('Received data: ', $request->all());
-    
-        // Define validation rules for the incoming request
-        $validatedData = $request->validate([
-            'fileno' => 'required|string|max:255',
-            'customer_code' => 'required|string|max:255',
-            'claim_number' => 'required|string|max:255|unique:claims',
-            'reported_date' => 'required|date',
-            'type_of_loss' => 'required|string|max:255',
-            'loss_details' => 'nullable|string',
-            'loss_date' => 'required|date',
-            'followup_date' => 'nullable|date',
-            'claimant_name' => 'required|string|max:255',
-            'amount_claimed' => 'required|numeric',
-            'amount_paid' => 'nullable|numeric',
+        $isAjax = $request->ajax() || $request->wantsJson();
+
+        // Validate the form inputs (names used on the create page)
+        $rules = [
+            'policy_id' => 'required|exists:policies,id',
+            'claim_no' => 'nullable|string|max:255',
+            'date_of_loss' => 'required|date',
+            'reported_at' => 'nullable|date',
+            'type_of_loss' => 'nullable|string|max:255',
+            'claimant_name' => 'nullable|string|max:255',
             'status' => 'required|string',
-            'upload_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:2048',
-        ]);
-    
-        // Begin database transaction to ensure atomicity
+            'loss_details' => 'nullable|string',
+            'amount_claimed' => 'nullable|numeric|min:0',
+            'amount_paid' => 'nullable|numeric|min:0',
+            'attachments.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf,doc,docx|max:5120',
+        ];
+
+        $validated = $request->validate($rules);
+
         DB::beginTransaction();
-    
         try {
-            // Retrieve the policy_id using the fileno
-            $policy = Policy::where('fileno', $validatedData['fileno'])->firstOrFail();
-            $validatedData['policy_id'] = $policy->id;
-    
-            // Handle file upload
-            if ($request->hasFile('upload_file')) {
-                $filePath = $request->file('upload_file')->store('documents');
-                $validatedData['upload_file'] = $filePath; // Store file path in the database
+            // Map incoming fields to DB columns (use DB names your table expects)
+            $payload = [
+                'policy_id'      => $validated['policy_id'],
+                'claim_number'   => $validated['claim_no'] ?? $request->input('claim_number') ?? null,
+                'loss_date'      => $validated['date_of_loss'],
+                'reported_date'  => $validated['reported_at'] ?? null,
+                'type_of_loss'   => $validated['type_of_loss'] ?? null,
+                'claimant_name'  => $validated['claimant_name'] ?? $request->input('claimant_name') ?? null,
+                'status'         => $validated['status'],
+                'loss_details'   => $validated['loss_details'] ?? $request->input('loss_details') ?? null,
+                'amount_claimed' => $validated['amount_claimed'] ?? null,
+                'amount_paid'    => $validated['amount_paid'] ?? null,
+                // do not add attachments/created_by here yet; we'll decide below
+            ];
+
+            Log::info('ClaimController@store: creating claim payload (pre-attachments)', $payload);
+
+            // Save uploaded files to storage and collect metadata
+            $attachmentsMeta = [];
+            if ($request->hasFile('attachments')) {
+                foreach ($request->file('attachments') as $file) {
+                    if ($file && $file->isValid()) {
+                        $path = $file->store('claims', 'public'); // stores in storage/app/public/claims
+                        $attachmentsMeta[] = [
+                            'original_name' => $file->getClientOriginalName(),
+                            'path' => $path,
+                            'size' => $file->getSize(),
+                            'mime' => $file->getClientMimeType(),
+                        ];
+                        Log::info("ClaimController@store: uploaded file saved to storage/public/{$path}");
+                    }
+                }
             }
-            // Assign the user_id from the authenticated user
-            $validatedData['user_id'] = Auth::id();
 
-            // Create a new claim with the validated data
-            $claim = new Claim($validatedData);
- 
+            $claimsTable = (new Claim())->getTable();
 
-            // Save the claim to the database
-            $claim->save();
-    
-            // Log the success message
-            \Log::info('Claim saved successfully:', $claim->toArray());
-    
-            // Commit the transaction to persist changes
+            // Only include attachments if the DB actually has an attachments column
+            if (Schema::hasColumn($claimsTable, 'attachments')) {
+                $payload['attachments'] = $attachmentsMeta;
+            } else {
+                Log::warning("Claims table does not have 'attachments' column; uploaded files will not be saved to DB. Files saved to storage and will be moved to claim folder after creation.");
+            }
+
+            // Only include created_by if the column exists
+            if (Schema::hasColumn($claimsTable, 'created_by')) {
+                $payload['created_by'] = Auth::id();
+            }
+
+            // Filter payload to only actual columns to avoid SQL errors
+            $availableColumns = Schema::getColumnListing($claimsTable);
+            $filteredPayload = array_intersect_key($payload, array_flip($availableColumns));
+
+            Log::debug('ClaimController@store: filtered payload keys: ' . implode(',', array_keys($filteredPayload)));
+
+            // Create the claim
+            $claim = Claim::create($filteredPayload);
+
+            // If attachments were uploaded but the DB did not have an attachments column,
+            // move files into a claim-specific folder for easier manual/linking later.
+            if (!Schema::hasColumn($claimsTable, 'attachments') && !empty($attachmentsMeta)) {
+                foreach ($attachmentsMeta as $att) {
+                    $oldPath = $att['path'] ?? null;
+                    if (! $oldPath) continue;
+
+                    $filename = basename($oldPath);
+                    $newDir = 'claims/claim_' . $claim->id;
+                    $newPath = $newDir . '/' . $filename;
+
+                    try {
+                        // Ensure directory exists (disk 'public')
+                        // Storage::disk('public')->makeDirectory($newDir); // optional, move will create dirs
+                        if (Storage::disk('public')->exists($oldPath)) {
+                            Storage::disk('public')->move($oldPath, $newPath);
+                            Log::info("ClaimController@store: moved file {$oldPath} -> {$newPath} for claim {$claim->id}");
+                        } else {
+                            Log::warning("ClaimController@store: expected file missing when moving: {$oldPath}");
+                        }
+                    } catch (\Exception $e) {
+                        Log::error("ClaimController@store: failed to move attachment {$oldPath} for claim {$claim->id}: " . $e->getMessage());
+                    }
+                }
+
+                // Log guidance so admin/dev can later link attachments into DB or separate table
+                Log::info("ClaimController@store: uploaded files for claim {$claim->id} are stored under storage/app/public/claims/claim_{$claim->id}/");
+            }
+
             DB::commit();
-    
-            // Redirect to the claims index page with a success message
-            return redirect()->route('claims.index')->with('success', 'Claim created successfully.');
+
+            Log::info('ClaimController@store: created claim id=' . $claim->id);
+
+            if ($isAjax) {
+                return response()->json(['success' => true, 'claim_id' => $claim->id], 201);
+            }
+
+            return redirect()->route('claims.show', $claim->id)->with('success', 'Claim created successfully.');
         } catch (\Exception $e) {
-            // Rollback the transaction in case of an error
             DB::rollBack();
-    
-            // Log the error message and stack trace for debugging
-            \Log::error('An error occurred while saving the claim:', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-    
-            // Redirect back with an error message
-            return redirect()->back()->with('error', 'An error occurred while saving the claim.');
+            Log::error('ClaimController@store: error creating claim', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+
+            if ($isAjax) {
+                return response()->json(['success' => false, 'error' => 'Unable to create claim.'], 500);
+            }
+
+            return redirect()->back()->withInput()->with('error', 'An error occurred while creating the claim. Check logs for details.');
         }
     }
 
@@ -204,16 +270,127 @@ class ClaimController extends Controller
             'events.*.event_date' => 'required_with:events|date',
             'events.*.event_type' => 'required_with:events|string|max:255',
             'events.*.description' => 'nullable|string',
+            // attachments handling if new files uploaded
+            'attachments.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf,doc,docx|max:5120',
+            // remove_attachments expected as array of indices or filenames (from edit form checkboxes)
+            'remove_attachments' => 'nullable|array',
         ]);
 
         // Log the update action
         Log::info('Updating claim ID: ' . $claim->id, $validated);
 
+        // Process attachment removals (if any)
+        try {
+            $removeList = $request->input('remove_attachments', []);
+            // Normalize remove list
+            if (!is_array($removeList)) {
+                if (is_string($removeList)) {
+                    $decoded = json_decode($removeList, true);
+                    $removeList = is_array($decoded) ? $decoded : [$removeList];
+                } else {
+                    $removeList = (array)$removeList;
+                }
+            }
+
+            // Ensure attachments is an array
+            $existingAttachments = $claim->attachments ?? [];
+            if (is_string($existingAttachments)) {
+                $decoded = json_decode($existingAttachments, true);
+                $existingAttachments = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : [];
+            } elseif (!is_array($existingAttachments)) {
+                $existingAttachments = [];
+            }
+
+            if (!empty($removeList) && count($existingAttachments) > 0) {
+                $remaining = [];
+                foreach ($existingAttachments as $idx => $att) {
+                    $shouldRemove = false;
+
+                    // Accept removal by index (numeric) or by path/name string
+                    if (in_array($idx, $removeList, true)) {
+                        $shouldRemove = true;
+                    } elseif (isset($att['path']) && in_array($att['path'], $removeList, true)) {
+                        $shouldRemove = true;
+                    } elseif (isset($att['original_name']) && in_array($att['original_name'], $removeList, true)) {
+                        $shouldRemove = true;
+                    } elseif (in_array((string)$idx, $removeList, true)) {
+                        // sometimes form posts string indices
+                        $shouldRemove = true;
+                    }
+
+                    if ($shouldRemove) {
+                        // Attempt to delete physical file from storage/public
+                        $path = $att['path'] ?? $att['file'] ?? null;
+                        if ($path) {
+                            try {
+                                if (Storage::disk('public')->exists($path)) {
+                                    Storage::disk('public')->delete($path);
+                                    Log::info("Deleted attachment file for claim {$claim->id}: {$path}");
+                                } else {
+                                    Log::warning("Attachment file not found for deletion (claim {$claim->id}): {$path}");
+                                }
+                            } catch (\Exception $e) {
+                                Log::error("Error deleting attachment for claim {$claim->id}: " . $e->getMessage());
+                                // continue without throwing to allow other removals/updates
+                            }
+                        } else {
+                            Log::warning("Attachment entry had no path for claim {$claim->id}: " . json_encode($att));
+                        }
+                        // do not add to $remaining (effectively removed)
+                    } else {
+                        $remaining[] = $att;
+                    }
+                }
+
+                // Assign remaining attachments back to the claim
+                $claim->attachments = $remaining;
+                // Persist the change now so further update logic sees the updated attachments
+                $claim->saveQuietly();
+                Log::info('ClaimController@update: removed attachments for claim ' . $claim->id . '; remaining count: ' . count($remaining));
+            }
+        } catch (\Exception $e) {
+            // Log but do not abort update flow; inform admin in logs
+            Log::error('ClaimController@update: error processing attachment removals for claim ' . $claim->id . ' - ' . $e->getMessage());
+        }
+
         // Assign the user_id from the authenticated user
-        $validatedData['user_id'] = Auth::id();
+        $validated['user_id'] = Auth::id();
 
         // Update the claim with the validated data
         $claim->update($validated);
+
+        // Handle newly uploaded attachments (append)
+        if ($request->hasFile('attachments')) {
+            $existingAttachments = $claim->attachments ?? [];
+            if (is_string($existingAttachments)) {
+                $decoded = json_decode($existingAttachments, true);
+                $existingAttachments = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : [];
+            } elseif (!is_array($existingAttachments)) {
+                $existingAttachments = [];
+            }
+
+            foreach ($request->file('attachments') as $file) {
+                if ($file && $file->isValid()) {
+                    try {
+                        $path = $file->store('claims', 'public');
+                        $meta = [
+                            'original_name' => $file->getClientOriginalName(),
+                            'path' => $path,
+                            'size' => $file->getSize(),
+                            'mime' => $file->getClientMimeType(),
+                        ];
+                        $existingAttachments[] = $meta;
+                        Log::info('ClaimController@update: uploaded attachment for claim ' . $claim->id . ' -> ' . $path);
+                    } catch (\Exception $e) {
+                        Log::error('ClaimController@update: failed to store uploaded attachment: ' . $e->getMessage());
+                    }
+                }
+            }
+
+            // Save updated attachments
+            $claim->attachments = $existingAttachments;
+            $claim->saveQuietly();
+        }
 
         // If there are events provided, update or create them
         if ($request->has('events')) {
@@ -244,6 +421,7 @@ class ClaimController extends Controller
             ->join('insurers', 'policies.insurer_id', '=', 'insurers.id') // Assuming the insurer's name is stored in a column called 'name'
             ->join('customers', 'policies.customer_code', '=', 'customers.customer_code')
             ->select(
+                'policies.id as policy_id',                       // <-- added numeric policy id for form validation
                 'policies.customer_code',
                 'policies.fileno',
                 'policies.customer_name',

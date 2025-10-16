@@ -41,21 +41,10 @@
     <!-- Client Details Section -->
     <div class="group-heading">Client Details</div>
     <div class="row">
-        <!-- Client Type Selection -->
-        <div class="col-md-4 form-group">
-            <label>Type</label><br>
-            <label><input type="radio" name="client_type" value="lead" {{ $policy->client_type == 'lead' ? 'checked' : '' }} onclick="toggleClientFields()"> Lead</label>
-            <label><input type="radio" name="client_type" value="customer" {{ $policy->client_type == 'customer' ? 'checked' : '' }} onclick="toggleClientFields()"> Customer</label>
+        <div class="col-md-2 form-group">
+            <label for="fileno">File No</label>
+            <input type="text" id="fileno" name="fileno" class="form-control" readonly value="{{ old('fileno', $policy->fileno) }}">
         </div>
-    </div>
-    <div class="row">
-        <!-- Customer Search and Selection -->
-        <div id="customerCodeField" class="col-md-3 form-group" style="display: {{ $policy->client_type == 'customer' ? 'block' : 'none' }};">
-            <label for="search"> </label>
-            <input type="text" id="search" class="form-control" placeholder="Search Customer" value="{{ old('search', $policy->customer_name) }}">
-            <div id="results" class="mt-2"></div>
-        </div>
-
         <!-- Read-only Customer Details -->
         <div class="col-md-2 form-group">
             <label for="customer_code_display">Code</label>
@@ -63,7 +52,7 @@
             <input type="hidden" id="customer_code" name="customer_code" value="{{ old('customer_code', $policy->customer_code) }}">
         </div>
 
-        <div class="col-md-6 form-group">
+        <div class="col-md-4 form-group">
             <label for="customer_name_display">Customer Name <span class="text-danger">*</span></label>
             <input type="text" id="customer_name_display" class="form-control @error('customer_name') is-invalid @enderror" readonly value="{{ old('customer_name', $policy->customer_name) }}">
             <input type="hidden" id="customer_name" name="customer_name" value="{{ old('customer_name', $policy->customer_name) }}">
@@ -365,7 +354,7 @@
     <div class="group-heading mt-3">Cover Details</div>
     <div class="form-group">
         <label for="cover_details">Features</label>
-        <textarea id="cover_details" name="cover_details" class="form-control">{{ old('cover_details', $policy->cover_details) }}</textarea>
+        <textarea id="cover_details" name="cover_details" class="form-control" style="height: 200px; width: 100%;">{{ old('cover_details', $policy->cover_details) }}</textarea>
     </div>
 
     <!-- Documents Section -->
@@ -454,12 +443,6 @@
         let date = new Date(startDate);
         date.setDate(date.getDate() + parseInt(days));
         return date.toISOString().split('T')[0];
-    }
-
-    // Toggle customer fields based on client type selection
-    function toggleClientFields() {
-        const clientType = document.querySelector('input[name="client_type"]:checked').value;
-        document.getElementById('customerCodeField').style.display = clientType === 'customer' ? 'block' : 'none';
     }
 
     // Handle customer search and selection
@@ -733,6 +716,237 @@ function calculateRateFromPremium() {
         document.getElementById('rate_display').addEventListener('input', calculatePremiumFromRate);
         document.getElementById('sum_insured_display').addEventListener('input', calculatePremiumFromRate);
     });
+
+    // Load cover details based on selected policy type
+    function loadCoverDetails() {
+        const policyTypeId = $('#policy_type_id').val();
+        let fileName;
+
+        switch (policyTypeId) {
+            case '1':
+                fileName = 'agribusiness_features.txt';
+                break;
+            case '2':
+                fileName = 'all_risks-insurance_features.txt';
+                break;
+            case '3':
+                fileName = 'all_risks-insurance_features.txt';
+                break;
+            case '4':
+                fileName = 'burglary_insurance_features.txt';
+                break;
+            case '5':
+                fileName = 'business_combined_features.txt';
+                break;
+            case '6':
+                fileName = 'carriers_legal_liability_features.txt';
+                break;
+            case '7':
+                fileName = 'combined_general_liability_features.txt';
+                break;
+            case '8':
+                fileName = 'contaminated_products_features.txt';
+                break;
+            case '9':
+                fileName = 'contractor_plant_machinery_features.txt';
+                break;
+            case '10':
+                fileName = 'contractors_all_risks_features.txt';
+                break;
+            case '11':
+                fileName = 'contractual_liability_features.txt';
+                break;
+            case '12':
+                fileName = 'custom_bond_features.txt';
+                break;
+            case '13':
+                fileName = 'directors_and_officers_liability_features.txt';
+                break;
+            case '14':
+                fileName = 'domestic_package_features.txt';
+                break;
+            case '15':
+                fileName = 'electronic_equipment_insurance_features.txt';
+                break;
+            case '16':
+                fileName = 'employers_liability_features.txt';
+                break;
+            case '17':
+                fileName = 'engineering_features.txt';
+                break;
+            case '18':
+                fileName = 'erection_all_risks_features.txt';
+                break;
+            case '19':
+                fileName = 'evacuation_and_repatriation_features.txt';
+                break;
+            case '20':
+                fileName = 'fidelity_guarantee_features.txt';
+                break;
+            case '21':
+                fileName = 'fire_special_perils_features.txt';
+                break;
+            case '22':
+                fileName = 'golfers_features.txt';
+                break;
+            case '23':
+                fileName = 'goods_in_transit_insurance_features.txt';
+                break;
+            case '24':
+                fileName = 'group_life_features.txt';
+                break;
+            case '25':
+                fileName = 'group_personal_accident_features.txt';
+                break;
+            case '26':
+                fileName = 'immigration_bond_features.txt';
+                break;
+            case '27':
+                fileName = 'individual_life_features.txt';
+                break;
+            case '28':
+                fileName = 'industrial_all_risks_features.txt';
+                break;
+            case '29':
+                fileName = 'kidnap_features.txt';
+                break;
+            case '30':
+                fileName = 'last_expense_features.txt';
+                break;
+            case '31':
+                fileName = 'machinery_breakdown_features.txt';
+                break;
+            case '32':
+                fileName = 'marine_cargo_features.txt';
+                break;
+            case '33':
+                fileName = 'marine_hull_features.txt';
+                break;
+            case '34':
+                fileName = 'medical_features.txt';
+                break;
+            case '35':
+                fileName = 'motor_private_features.txt';
+                break;
+            case '36':
+                fileName = 'motor_commercial_features.txt';
+                break;
+            case '37':
+                fileName = 'motorcycle_features.txt';
+                break;
+            case '38':
+                fileName = 'office_combined_features.txt';
+                break;
+            case '39':
+                fileName = 'performance_bond_features.txt';
+                break;
+            case '40':
+                fileName = 'personal_accident_features.txt';
+                break;
+            case '41':
+                fileName = 'political_risks_features.txt';
+                break;
+            case '42':
+                fileName = 'products_liability_features.txt';
+                break;
+            case '43':
+                fileName = 'professional_indemnity_features.txt';
+                break;
+            case '44':
+                fileName = 'public_liability_features.txt';
+                break;
+            case '45':
+                fileName = 'surety_bond_features.txt';
+                break;
+            case '46':
+                fileName = 'tender_bond_features.txt';
+                break;
+            case '47':
+                fileName = 'term_assurance_features.txt';
+                break;
+            case '48':
+                fileName = 'travel_features.txt';
+                break;
+            case '49':
+                fileName = 'warehousing_features.txt';
+                break;
+            case '50':
+                fileName = 'warehousing_legal_liability_features.txt';
+                break;
+            case '51':
+                fileName = 'WIBA_features.txt';
+                break;
+            case '52':
+                fileName = 'group_personal_WIBA_features.txt';
+                break;
+            case '53':
+                fileName = 'contractors_all_risks_features.txt'; // Assuming this is the correct file name
+                break;
+            case '54':
+                fileName = 'all_risks_insurance_features.txt'; // Assuming this is the correct file name
+                break;
+            case '55':
+                fileName = 'group_personal_accident_(GPA)_features.txt'; // Assuming this is the correct file name
+                break;
+            case '56':
+                fileName = 'aviation_hull_features.txt';
+                break;
+            case '57':
+                fileName = 'aviation_premises_features.txt';
+                break;
+            case '58':
+                fileName = 'business_interruption_insurance_features.txt';
+                break;
+            case '59':
+                fileName = 'group_personal_accident_aviation_features.txt'; // Assuming this is the correct file name
+                break;
+            case '60':
+                fileName = 'group_personal_accident_fixed_benefits_features.txt';
+                break;
+            case '61':
+                fileName = 'machinery_breakdown_consequential_loss_features.txt';
+                break;
+            case '62':
+                fileName = 'money_insurance_features.txt';
+                break;
+            case '63':
+                fileName = 'motor_contingent_legal_liability_features.txt';
+                break;
+            case '64':
+                fileName = 'motor_trade_road_risks_features.txt';
+                break;
+            case '65':
+                fileName = 'plant_all_risks_features.txt';
+                break;
+            case '66':
+                fileName = 'plate_glass_insurance_features.txt';
+                break;
+            case '67':
+                fileName = 'stock_floater_insurance_features.txt';
+                break;
+            case '68':
+                fileName = 'trustees_liability_features.txt';
+                break;
+            default:
+                fileName = ''; // No file for this policy type
+                break;
+        }
+
+        if (fileName) {
+            $.ajax({
+                url: `/text_files/${fileName}`,
+                type: "GET",
+                success: function(data) {
+                    $('#cover_details').val(data);
+                },
+                error: function() {
+                    $('#cover_details').val(''); // Clear cover details if there's an error
+                }
+            });
+        } else {
+            $('#cover_details').val(''); // Clear cover details if no file is available
+        }
+    }
 </script>
 <script>
     // Function to add a new document row

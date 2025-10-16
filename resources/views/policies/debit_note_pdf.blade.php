@@ -11,36 +11,32 @@
             margin: 20px;
             color: #02066F;
         }
+        /* Header: two-column layout (logo left, contact details right) */
         .header {
             display: flex;
+            flex-direction: row;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
             color: #25255F;
             border-bottom: 2px solid #111184;
             padding-bottom: 10px;
+            gap: 10px;
         }
-        .header-content {
-            display: flex;
-            align-items: center;
-        }
-        .logo img {
-            width: 250px;
-        }
+        /* Left column: logo - fixed width */
+        .logo { flex: 0 0 40%; text-align: left; }
+        .logo img { width: 220px; height: auto; display:block; }
+        /* Right column: contact details - right aligned */
         .contact-details {
+            flex: 1 1 60%;
             display: flex;
             flex-direction: column;
-            align-items: flex-end;
+            align-items: flex-end; /* right align */
+            text-align: left;
             font-size: 11px;
         }
-        .contact-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 5px;
-        }
-        .contact-item i {
-            margin-right: 5px;
-        }
+        .contact-item { margin-bottom: 4px; }
+        .contact-item i { margin-right: 8px; color:#02066F; min-width:16px; text-align:center; }
         .date {
             font-size: 10px;
             text-align: right;
@@ -119,8 +115,9 @@
                 padding: 5px !important;
             }
             .logo img {
-                width: 350px !important;
+                width: 320px !important;
             }
+            .contact-details { font-size:10px !important; }
             .logo p {
                 font-size: 11px !important;
                 margin-left: 5px !important;
@@ -131,48 +128,58 @@
         }
     </style>
 </head>
-<body> 
+<body>
 <div class="container">
-    <header class="header">
-        <div class="header-content">
-            <div class="logo">
-                <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path('img/logo.png'))) }}" alt="Logo">
-            </div>
-            <div class="contact-details">
-                <div class="contact-item">
-                    <i class="fa-solid fa-map-location-dot"></i> 4th Floor, Delta Corner Annex, Ring Road Westlands Lane, Nairobi, Kenya
-                </div>
-                <div class="contact-item">
-                    <i class="fa-solid fa-phone"></i> <strong>Mobile:</strong> 0796 947159
-                </div>
-                <div class="contact-item">
-                    <i class="fa-solid fa-envelope"></i> <strong>Email:</strong> customerservice@midrash.co.ke
-                </div>
-                <div class="contact-item">
-                    <i class="fa-solid fa-globe"></i> <strong>Website:</strong> www.midrash.co.ke
-                </div>
-            </div>
-        </div>
+    <header class="header" role="banner" aria-label="Company header">
+        <table style="width:100%; border-collapse:collapse;">
+            <tr>
+                <td style="width:50%; vertical-align:top; padding-right:10px;">
+                    <div class="logo" aria-hidden="true">
+                        <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path('img/logo.png'))) }}" alt="Company logo">
+                    </div>
+                </td>
+                <td style="width:50%; vertical-align:top; text-align:right; padding-left:10px;">
+                    <div class="contact-item"><i class="fa-solid fa-map-location-dot"></i>P.O BOX 14657</div>
+                    <div class="contact-item"><i class="fa-solid fa-map-location-dot"></i>Nairobi 00100 GPO</div>
+                    <div class="contact-item"><i class="fa-solid fa-phone"></i>Mobile: +254 0722 270897</div>
+                    <div class="contact-item"><i class="fa-solid fa-envelope"></i>Email: info@emelyInsurance.co.ke</div>
+                </td>
+            </tr>
+        </table>
     </header>
 
-    <h3 class="my-1 text-center">Debit Note</h3>
+    <h3 class="my-1 text-center" style="margin-top:6px;">Debit Note</h3>
 
     <!-- Client Details Section -->
     <div class="group-heading">Client Details</div>
     <table>
         <tbody>
             <tr>
-                <td class="form-group">
+                <td class="form-group" style="width:33%;">
                     <label>File No:</label>
-                    <span class="value">{{ $policy->fileno }}</span>
+                    <div class="value">{{ $policy->fileno }}</div>
+                </td>
+                <td class="form-group" style="width:33%;">
+                    <label>Customer Code:</label>
+                    <div class="value">{{ $policy->customer_code }}</div>
+                </td>
+                <td class="form-group" style="width:34%;">
+                    <label>Customer Name:</label>
+                    <div class="value">{{ $policy->customer_name }}</div>
+                </td>
+            </tr>
+            <tr>
+                <td class="form-group">
+                    <label>Phone:</label>
+                    <div class="value">{{ $policy->customer->phone ?? $policy->phone ?? '-' }}</div>
                 </td>
                 <td class="form-group">
-                    <label>Customer Code</label>
-                    <span class="value">{{ $policy->customer_code }}</span>
+                    <label>Email:</label>
+                    <div class="value">{{ $policy->customer->email ?? $policy->email ?? '-' }}</div>
                 </td>
                 <td class="form-group">
-                    <label>Customer Name</label>
-                    <span class="value">{{ $policy->customer_name }}</span>
+                    <label></label>
+                    <div class="value"></div>
                 </td>
             </tr>
         </tbody>
@@ -321,7 +328,6 @@
                     <span class="value">{{ number_format($policy->other_charges, 2) }}</span>
                 </td> 
             </tr>
-            @if ($policy->policy_type_id == '35' || $policy->policy_type_id == '36' || $policy->policy_type_id == '37')
             <tr>
                 <td class="form-group">
                     <label>PVT</label>
@@ -345,14 +351,9 @@
                     <label>Road Rescue</label>
                     <span class="value">{{ number_format($policy->road_rescue, 2) }}</span>
                 </td>
-            @endif
                 <td class="form-group">
                     <label>Gross Premium</label>
                     <span class="value">{{ number_format($policy->gross_premium, 2) }}</span>
-                </td>
-                <td class="form-group">
-                    <label></label>
-                    <span class="value"></span>
                 </td>
                 <td class="form-group">
                     <label></label>
@@ -377,5 +378,3 @@
 </div>
 </body>
 </html>
-
- 

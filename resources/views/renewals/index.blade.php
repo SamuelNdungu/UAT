@@ -78,6 +78,8 @@
                             <th>Entry Date</th>
                             <th>Cust Code</th>
                             <th>Name</th>
+                            <th>Mobile</th>
+                            <th>Phone</th>
                             <th>Policy Type</th> 
                             <th>Start Date</th> 
                             <th>End Date</th>
@@ -99,6 +101,8 @@
                             <td>{{ \Carbon\Carbon::parse($policy->created_at)->format('d-m-Y') }}</td> 
                             <td>{{ $policy->customer_code }}</td>
                             <td>{{ $policy->customer_name }}</td>
+                            <td>{{ $policy->mobile ?? $policy->mobile_number ?? '-' }}</td>
+                            <td>{{ $policy->phone ?? $policy->telephone ?? '-' }}</td>
                             <td>{{ $policy->policy_type_name }}</td> 
                             <td>{{ \Carbon\Carbon::parse($policy->start_date)->format('d-m-Y') }}</td> 
                             <td>{{ \Carbon\Carbon::parse($policy->end_date)->format('d-m-Y') }}</td>
@@ -109,15 +113,36 @@
                             <td>{{ $policy->model }}</td> 
                             <td>{{ $policy->sum_insured }}</td>                         
                             <td>{{ number_format($policy->gross_premium, 2) }}</td> 
-                            <td style="white-space: nowrap; position: sticky; right: 0; background-color: white; z-index: 100; padding: 2px; border-left: 1px solid #ddd;">
-                                <a href="{{ route('policies.show', $policy->id) }}" class="btn btn-info btn-xs" aria-label="View" title="View" style="font-size: 0.5rem; padding: 2px 5px;">
-                                    <i class="fas fa-eye" aria-hidden="true" style="font-size: 0.5rem;"></i>
-                                </a>
-                                <a href="{{ route('renewals.renew', $policy->id) }}" class="btn btn-warning btn-xs" aria-label="Renew" title="Renew" style="font-size: 0.5rem; padding: 2px 5px;">
-                                    <i class="fas fa-pencil-alt" aria-hidden="true" style="font-size: 0.5rem;"></i>
-                                </a>
-                            </td>
                             <td>{{ $policy->status }}</td>
+                            <td style="white-space: nowrap; position: sticky; right: 0; background-color: white; z-index: 100; padding: 2px; border-left: 1px solid #ddd;">
+	{{-- View (icon only, no button) --}}
+	<a href="{{ route('policies.show', $policy->id) }}" aria-label="View" title="View"
+	   style="color: #17a2b8; margin-right: 8px; font-size: 0.9rem;">
+		<i class="fas fa-eye" aria-hidden="true"></i>
+	</a>
+
+	{{-- Renew (icon only, no button) --}}
+	<a href="{{ route('renewals.renew', $policy->id) }}" aria-label="Renew" title="Renew"
+	   style="color: #ffc107; margin-right: 8px; font-size: 0.9rem;">
+		<i class="fas fa-pencil-alt" aria-hidden="true"></i>
+	</a>
+
+	{{-- Send renewal email (icon only) --}}
+	<a href="{{ route('customers.sendRenewalEmail', $policy->id) }}"
+	   title="Send renewal email"
+	   onclick="return confirm('Send renewal email to {{ addslashes($policy->customer_name) }}?');"
+	   style="color: #007bff; margin-right: 8px; font-size: 0.9rem;">
+		<i class="fas fa-envelope" aria-hidden="true"></i>
+	</a>
+
+	{{-- Send renewal SMS (icon only) --}}
+	<a href="{{ route('customers.sendRenewalSms', $policy->id) }}"
+	   title="Send renewal SMS"
+	   onclick="return confirm('Send renewal SMS to {{ addslashes($policy->customer_name) }}?');"
+	   style="color: #28a745; font-size: 0.9rem;">
+		<i class="fas fa-sms" aria-hidden="true"></i>
+	</a>
+</td>
                         </tr>
                         @endforeach
                     </tbody>
@@ -127,6 +152,8 @@
                             <th>Entry Date</th>
                             <th>Cust Code</th>
                             <th>Name</th>
+                            <th>Mobile</th>
+                            <th>Phone</th>
                             <th>Policy Type</th> 
                             <th>Start Date</th> 
                             <th>End Date</th>

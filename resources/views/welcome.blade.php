@@ -15,7 +15,7 @@
         box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
     }
     .card-header {
-        background: linear-gradient(45deg, #007bff, #e74c3c);
+        background: linear-gradient(45deg, #10253bff, #1a0543ff);
         border-top-left-radius: 15px;
         border-top-right-radius: 15px;
         padding: 20px;
@@ -34,8 +34,8 @@
     }
     .btn-primary {
         border-radius: 10px;
-        background-color: #007bff;
-        border-color: #007bff;
+        background-color: #0f2338ff;
+        border-color: #0f2338ff;
     }
     .btn-primary:hover {
         background-color: #0069d9;
@@ -59,7 +59,7 @@
         text-decoration: underline;
     }
     .gradient-text {
-        background: linear-gradient(45deg,rgb(94, 33, 5),rgb(190, 156, 62));
+        background: linear-gradient(45deg,rgba(255, 255, 255, 1),rgba(236, 229, 209, 1));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
     }

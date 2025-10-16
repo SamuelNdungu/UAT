@@ -17,8 +17,8 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PerformanceController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FeesController;
-
-
+use App\Http\Controllers\RenewalController;
+use App\Http\Controllers\CustomerStatementController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -77,6 +77,9 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/renewals/{id}', [RenewalsController::class, 'update'])->name('renewals.update');
     Route::get('/policies/search', [RenewalsController::class, 'search'])->name('policies.search');
     
+    // Policy renewal history
+    Route::get('/policies/{id}/history', [RenewalsController::class, 'history'])->name('policies.history');
+    
      // Payments routes
     Route::get('/payments', [PaymentsController::class, 'index'])->name('payments.index');
     Route::get('/payments/create', [PaymentsController::class, 'create'])->name('payments.create');
@@ -125,6 +128,15 @@ Route::post('/mpesa/callback', [MpesaPaymentController::class, 'handleMpesaCallb
   Route::post('/send-email/{customerId}', [NotificationController::class, 'sendEmail']);
   Route::post('/send-sms/{customerId}', [NotificationController::class, 'sendSMS']);
 
+  Route::post('/customers/{id}/send-renewal-email', [NotificationController::class, 'sendRenewalEmail'])->name('customers.send.renewal.email');
+  Route::post('/customers/{id}/send-renewal-sms', [NotificationController::class, 'sendRenewalSms'])->name('customers.send.renewal.sms');
+
+  Route::get('customers/{id}/send-renewal-email', [RenewalController::class, 'sendEmail'])
+    ->name('customers.sendRenewalEmail');
+
+  Route::get('customers/{id}/send-renewal-sms', [RenewalController::class, 'sendSms'])
+    ->name('customers.sendRenewalSms');
+
   Route::get('export/pdf', [PolicyExportController::class, 'exportPdf'])->name('export.pdf');
   Route::get('export/excel', [PolicyExportController::class, 'exportExcel'])->name('export.excel');
     
@@ -165,3 +177,6 @@ Route::post('/mpesa/callback', [MpesaPaymentController::class, 'handleMpesaCallb
   Route::resource('vehicle_types', App\Http\Controllers\VehicleTypeController::class);
   Route::resource('users', App\Http\Controllers\UserController::class);
 });
+
+Route::get('customers/{id}/statement', [CustomerStatementController::class, 'generate'])
+    ->name('customers.statement');

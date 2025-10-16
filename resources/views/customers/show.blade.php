@@ -2,168 +2,96 @@
 
 @section('content')
 <div class="container"> 
+    <style>
+        /* Local improvements for customer show */
+        .customer-card-head { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:0.75rem; }
+        .customer-badge { font-size:0.85rem; padding:.35rem .6rem; border-radius:.35rem; color:#fff; }
+        .badge-active { background:#198754; }
+        .badge-inactive { background:#6c757d; }
+        .detail-label { font-weight:600; color:#0d6efd; width:140px; display:inline-block; }
+        .muted { color:#6c757d; }
+        .doc-link { display:block; margin-bottom:.25rem; }
+        @media (max-width:767.98px){ .detail-label{ display:block; width:100%; margin-bottom:.25rem; } }
+    </style>
+
     <form>
-        <!-- Customer Type -->
         <div class="card card-danger">
             <div class="card-header">
                 <h4 class="card-title">Customer Details</h4>
             </div>
             <div class="card-body">
-                <div class="row mt-2 mb-4">
-                    <label class="col-2" for="customer_type">Customer Type:</label>
-                    <div class="col-10">
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" id="individual" name="customer_type" value="Individual" disabled {{ $customer->customer_type == 'Individual' ? 'checked' : '' }}>
-                            <label class="form-check-label" for="individual">Individual</label>
-                        </div>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" id="corporate" name="customer_type" value="Corporate" disabled {{ $customer->customer_type == 'Corporate' ? 'checked' : '' }}>
-                            <label class="form-check-label" for="corporate">Corporate</label>
-                        </div>
+                <div class="customer-card-head">
+                    <div>
+                        <h5 class="mb-0">{{ $customer->customer_type }} Customer</h5>
+                        <small class="muted">Code: {{ $customer->customer_code }}</small>
+                    </div>
+                    <div>
+                        <span class="customer-badge {{ $customer->status ? 'badge-active' : 'badge-inactive' }}">
+                            {{ $customer->status ? 'Active' : 'Inactive' }}
+                        </span>
                     </div>
                 </div>
 
-                <!-- Individual Form -->
-                <div id="individual-form" style="display: {{ $customer->customer_type == 'Individual' ? 'block' : 'none' }};">
-                    <div class="row mb-3">
-                        <div class="col-md-2">
-                            <label for="title">Title:</label>
-                            <input type="text" id="title" class="form-control" value="{{ $customer->title }}" readonly>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="first_name">First Name:</label>
-                            <input type="text" id="first_name" class="form-control" value="{{ $customer->first_name }}" readonly>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="last_name">Last Name:</label>
-                            <input type="text" id="last_name" class="form-control" value="{{ $customer->last_name }}" readonly>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="surname">Surname:</label>
-                            <input type="text" id="surname" class="form-control" value="{{ $customer->surname }}" readonly>
-                        </div>
+                <div class="row">
+                    <div class="col-lg-6">
+                        {{-- Identity / Company --}}
+                        @if($customer->customer_type === 'Individual')
+                            <p><span class="detail-label">Full Name</span> <span class="value">{{ $customer->title }} {{ $customer->first_name }} {{ $customer->last_name }} {{ $customer->surname }}</span></p>
+                            <p><span class="detail-label">ID Number</span> <span class="value">{{ $customer->id_number }}</span></p>
+                            <p><span class="detail-label">DOB</span> <span class="value">{{ $customer->dob }}</span></p>
+                            <p><span class="detail-label">Occupation</span> <span class="value">{{ $customer->occupation }}</span></p>
+                        @else
+                            <p><span class="detail-label">Company</span> <span class="value">{{ $customer->corporate_name }}</span></p>
+                            <p><span class="detail-label">Company No</span> <span class="value">{{ $customer->business_no }}</span></p>
+                            <p><span class="detail-label">Industry</span> <span class="value">{{ $customer->industry_class }} / {{ $customer->industry_segment }}</span></p>
+                            <p><span class="detail-label">Contact Person</span> <span class="value">{{ $customer->contact_person }}</span></p>
+                        @endif
                     </div>
 
-                    <div class="row mb-3">
-                        <div class="col-md-2">
-                            <label for="id_number">ID Number:</label>
-                            <input type="text" id="id_number" class="form-control" value="{{ $customer->id_number }}" readonly>
-                        </div>
-
-                        <div class="col-md-3">
-                            <label for="dob">Date of Birth:</label>
-                            <input type="date" id="dob" class="form-control" value="{{ $customer->dob }}" readonly>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="occupation">Occupation:</label>
-                            <input type="text" id="occupation" class="form-control" value="{{ $customer->occupation }}" readonly>
-                        </div>
+                    <div class="col-lg-6">
+                        {{-- Contact & address --}}
+                        <p><span class="detail-label">Email</span> <span class="value">{{ $customer->email ?? '-' }}</span></p>
+                        <p><span class="detail-label">Phone</span> <span class="value">{{ $customer->phone ?? '-' }}</span></p>
+                        <p><span class="detail-label">Address</span> <span class="value">{{ $customer->address }}</span></p>
+                        <p><span class="detail-label">City / County</span> <span class="value">{{ $customer->city }} / {{ $customer->county }}</span></p>
+                        <p><span class="detail-label">KRA PIN</span> <span class="value">{{ $customer->kra_pin }}</span></p>
                     </div>
                 </div>
 
-                <!-- Corporate Form -->
-                <div id="corporate-form" style="display: {{ $customer->customer_type == 'Corporate' ? 'block' : 'none' }};">
-                    <div class="row mb-3">
-                        <div class="col-md-3">
-                            <label for="corporate_name">Company Name:</label>
-                            <input type="text" id="corporate_name" class="form-control" value="{{ $customer->corporate_name }}" readonly>
-                        </div>
-                        <div class="col-md-2">
-                            <label for="business_no">Reg No:</label>
-                            <input type="text" id="business_no" class="form-control" value="{{ $customer->business_no }}" readonly>
-                        </div>
-                        <div class="col-md-2">
-                            <label for="industry_class">Industry Class:</label>
-                            <input type="text" id="industry_class" class="form-control" value="{{ $customer->industry_class }}" readonly>
-                        </div>
-                        <div class="col-md-2">
-                            <label for="industry_segment">Industry Segment:</label>
-                            <input type="text" id="industry_segment" class="form-control" value="{{ $customer->industry_segment }}" readonly>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="contact_person">Contact Person:</label>
-                            <input type="text" id="contact_person" class="form-control" value="{{ $customer->contact_person }}" readonly>
-                        </div>
+                <hr>
+                <div class="row">
+                    <div class="col-lg-8">
+                        <h6 class="mb-2">Notes</h6>
+                        <div class="preserve-formatting">{{ $customer->notes }}</div>
                     </div>
-                </div>
-
-                <!-- Common Fields -->
-                <div class="row mb-3"> 
-                    <div class="col-md-3">
-                        <label for="email">Email:</label>
-                        <input type="email" id="email" class="form-control" value="{{ $customer->email }}" readonly>
-                    </div>
-                    <div class="col-md-2">
-                        <label for="phone">Phone:</label>
-                        <input type="text" id="phone" class="form-control" value="{{ $customer->phone }}" readonly>
-                    </div>
-
-                    <div class="col-md-4">
-                        <label for="address">Address:</label>
-                        <input type="text" id="address" class="form-control" value="{{ $customer->address }}" readonly>
-                    </div>
-                    <div class="col-md-2">
-                        <label for="postal_code">Postal Code:</label>
-                        <input type="text" id="postal_code" class="form-control" value="{{ $customer->postal_code }}" readonly>
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-md-3">
-                        <label for="city">City:</label>
-                        <input type="text" id="city" class="form-control" value="{{ $customer->city }}" readonly>
-                    </div>
-                    <div class="col-md-2">
-                        <label for="county">County:</label>
-                        <input type="text" id="county" class="form-control" value="{{ $customer->county }}" readonly>
-                    </div>
-
-                    <div class="col-md-2">
-                        <label for="country">Country:</label>
-                        <input type="text" id="country" class="form-control" value="{{ $customer->country }}" readonly>
-                    </div>
-                    <div class="col-md-2">
-                        <label for="kra_pin">KRA PIN:</label>
-                        <input type="text" id="kra_pin" class="form-control" value="{{ $customer->kra_pin }}" readonly>
-                    </div>
-
-                    <div class="col-md-3">
-                        <label for="documents">Uploaded Files:</label><br>
-                        
+                    <div class="col-lg-4">
+                        <h6 class="mb-2">Documents</h6>
                         @if($customer->documents)
                             @php
-                                $filePath = public_path('storage/documents/' . basename($customer->documents));
+                                $docs = is_array($customer->documents) ? $customer->documents : [$customer->documents];
                             @endphp
-                            @if(file_exists($filePath))
+                            @foreach($docs as $doc)
                                 @php
-                                    $fileName = basename($customer->documents);
+                                    $fileName = basename($doc);
                                 @endphp
-                                <a href="{{ asset('storage/documents/' . $fileName) }}" download>{{ $fileName }}</a>
-                            @else
-                                File not found
-                            @endif
+                                <a class="doc-link" href="{{ asset('storage/documents/' . $fileName) }}" download><i class="fas fa-file"></i> {{ $fileName }}</a>
+                            @endforeach
+                        @else
+                            <p class="muted">No documents uploaded</p>
                         @endif
-
-
                     </div>
                 </div>
 
-                <div class="row mb-3">
-                    <div class="col-md-5">
-                        <label for="notes">Notes:</label>
-                        <textarea id="notes" class="form-control" readonly>{{ $customer->notes }}</textarea>
-                    </div>
-                    <div class="col-md-2">
-                    <label for="status">Status</label>
-                    <select name="status" id="status" class="form-control" disabled>
-                        <option value="1" {{ $customer->status ? 'selected' : '' }}>Active</option>
-                        <option value="0" {{ !$customer->status ? 'selected' : '' }}>Inactive</option>
-                    </select>
+                <div class="mt-3">
+                    @php
+                        $actionButtons = [
+                            ['url' => route('customers.index'), 'label' => 'Go Back', 'icon' => 'fas fa-arrow-left', 'variant' => 'primary', 'attrs' => ['title' => 'Back to list', 'aria-label' => 'Back to list']],
+                            ['url' => route('customers.edit', $customer->id), 'label' => 'Edit', 'icon' => 'fas fa-edit', 'variant' => 'warning', 'attrs' => ['title' => 'Edit customer', 'aria-label' => 'Edit customer']],
+                            ['url' => route('customers.statement', $customer->id), 'label' => 'Statement', 'icon' => 'fas fa-file-invoice', 'variant' => 'secondary', 'attrs' => ['title' => 'View statement']],
+                        ];
+                    @endphp
+                    @include('shared.action-buttons', ['buttons' => $actionButtons])
                 </div>
-                    
-                </div>
-                <!-- Edit Button -->
-                <a href="{{ route('customers.edit', $customer->id) }}" class="btn btn-primary">Edit</a>
             </div>
         </div>
     </form>

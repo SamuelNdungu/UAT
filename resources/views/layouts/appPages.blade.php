@@ -7,7 +7,7 @@
     <!-- CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <title>{{ config('app.name', 'Bima-Connect') }}</title>
+    <title>{{ config('app.name', 'Emely Insurance') }}</title>
     <!-- Bootstrap CSS -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrQkTy1zXS1ORQfrI6EaD94ICFPJ5p4L28/9HdOCxUs1D14jFRUqKFl2SoTiEUbMfpNU3gN0V8A8j5Rdrg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -44,7 +44,7 @@
     <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
             <!-- Navbar Brand-->
             <a class="navbar-brand" href="{{ url('/home') }}">
-                        {{ config('app.name', 'Bima-Connect') }}
+                        {{ config('app.name', 'Emely Insurance') }}
                     </a>
             <!-- Sidebar Toggle-->
             <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#!"><i class="fas fa-bars"></i></button>

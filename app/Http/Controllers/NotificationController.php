@@ -8,11 +8,41 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log; // Correctly import the Log facade
+use App\Models\Policy;
+use App\Mail\RenewalNotification;
 
 //use AfricasTalking\SDK\AfricasTalking;
 
 class NotificationController extends Controller
 {
+    public function sendRenewalEmail($id)
+    {
+        $policy = Policy::findOrFail($id);
+        Mail::to($policy->customer->email)->send(new RenewalNotification($policy));
+        return back()->with('success', 'Renewal email sent successfully.');
+    }
+
+    public function sendRenewalSms($id)
+    {
+        $policy = Policy::findOrFail($id);
+        $customer = $policy->customer;
+        $phone = '254' . substr($customer->phone, -9);
+
+        $message = "Dear {$customer->customer_name},\n";
+        $message .= "Your policy {$policy->policy_no} for ";
+        if (in_array($policy->policy_type_id, [35, 36, 37])) {
+            $message .= "{$policy->make} {$policy->model} (Reg: {$policy->reg_no})";
+        } else {
+            $message .= "{$policy->description}";
+        }
+        $message .= " is expiring on " . \Carbon\Carbon::parse($policy->end_date)->format('d-m-Y') . ".\n";
+        $message .= "Please contact us to renew.\n";
+        $message .= "File No: {$policy->fileno}";
+
+        $this->send_message_bulksms($phone, $message);
+
+        return back()->with('success', 'Renewal SMS sent successfully.');
+    }
     public function sendEmail($customerCode, Request $request)
     {
         // Log the attempt to send an email

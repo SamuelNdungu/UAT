@@ -86,7 +86,7 @@
                            
                         </div>
                         <div class="col-md-2">
-                            <label for="business_no">Reg No:</label>
+                            <label for="business_no">Company No:</label>
                             <input type="text" id="business_no" name="business_no" class="form-control" value="{{ old('business_no') }}">
                         </div>
                         <div class="col-md-2">

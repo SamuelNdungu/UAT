@@ -33,8 +33,25 @@
 <div class="container">
     <h1 class="my-4">Create Policy</h1>
 
+    <!-- Show session messages (success / error / validation) -->
+    @if(session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger">{{ session('error') }}</div>
+    @endif
+    @if($errors->any())
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     <!-- Policy creation form -->
-    <form method="POST" action="{{ route('policies.store') }}" enctype="multipart/form-data">
+    <form id="policyForm" method="POST" action="{{ route('policies.store') }}" enctype="multipart/form-data">
         @csrf
 
         <!-- Client Details Section -->
@@ -130,14 +147,17 @@
                 <input type="text" id="policy_no" name="policy_no" class="form-control" value="{{ old('policy_no') }}">
             </div>
 
-            <div class="col-md-3 form-group">
-                <label for="start_date">Start Date <span class="text-danger">*</span></label>
-                <input type="date" id="start_date" name="start_date" class="form-control" value="{{ old('start_date', now()->format('Y-m-d')) }}">
-            </div>
+            <div class="form-group">
+    <label for="start_date">Policy Start Date <span class="text-danger">*</span></label>
+    <input type="date" id="start_date" name="start_date" class="form-control" required
+           {{-- Dynamically sets the minimum date allowed to Jan 1st of the current year --}}
+           min="{{ now()->startOfYear()->format('Y-m-d') }}"
+           value="{{ old('start_date', now()->format('Y-m-d')) }}">
+</div>
 
             <div class="col-md-2 form-group">
                 <label for="days">Days</label>
-                <input type="number" id="days" name="days" class="form-control" value="{{ old('days', 365) }}">
+                <input type="number" id="days" name="days" class="form-control" value="{{ old('days', 364) }}">
             </div>
 
             <div class="col-md-3 form-group">
@@ -174,7 +194,15 @@
 
                 <div class="col-md-2 form-group">
                     <label for="yom">Y.O.M</label>
-                    <input type="number" id="yom" name="yom" class="form-control" value="{{ old('yom') }}">
+                    <select id="yom" name="yom" class="form-control">
+                        <option value="">Select</option>
+                        @php
+                            $currentYear = date('Y');
+                            for ($year = $currentYear; $year >= $currentYear - 100; $year--) {
+                                echo '<option value="' . $year . '" ' . (old('yom') == $year ? 'selected' : '') . '>' . $year . '</option>';
+                            }
+                        @endphp
+                    </select>
                 </div>
             </div>
 
@@ -192,6 +220,9 @@
                     <option value="Hatchback" {{ old('body_type') == 'Hatchback' ? 'selected' : '' }}>Hatchback</option>
                     <option value="Wagon" {{ old('body_type') == 'Wagon' ? 'selected' : '' }}>Wagon</option>
                     <option value="SUV" {{ old('body_type') == 'SUV' ? 'selected' : '' }}>SUV</option>
+		    <option value="TruckLorry" {{ old('body_type') == 'TruckLorry' ? 'selected' : '' }}>Truck/Lorry</option>
+		    <option value="Tractor" {{ old('body_type') == 'Tractor' ? 'selected' : '' }}>Tractor</option>
+		    <option value="Specialtypes" {{ old('body_type') == 'Specialtypes' ? 'selected' : '' }}>Special Types</option>
                 </select> 
             </div>
 
@@ -680,10 +711,10 @@ function loadCoverDetails() {
         // Set default values
         let today = new Date().toISOString().split('T')[0];
         $('#start_date').val(today);
-        $('#days').val(365);
+        $('#days').val(364);
 
         // Calculate end date
-        $('#end_date').val(calculateEndDate(today, 365));
+        $('#end_date').val(calculateEndDate(today, 364));
 
         // Update end date when start date or days change
         $('#start_date, #days').on('change', function() {
@@ -948,6 +979,161 @@ function loadCoverDetails() {
             });
         });
     });
+
+    // Simple client-side submit logger for debugging - non-blocking.
+    // This helps confirm the browser actually attempts submission.
+    // It does NOT prevent submission.
+    document.addEventListener('DOMContentLoaded', function () {
+        var form = document.getElementById('policyForm');
+        if (!form) return;
+
+        form.addEventListener('submit', function (e) {
+            try {
+                console.log('Policy form submitting...', {
+                    action: form.getAttribute('action'),
+                    method: form.getAttribute('method'),
+                    timestamp: new Date().toISOString()
+                });
+                // optional: show a quick UI feedback
+                var btn = form.querySelector('button[type="submit"]');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerText = 'Submitting...';
+                }
+            } catch (err) {
+                console.error('Submit logger error:', err);
+            }
+            // Let the form submit normally
+        });
+    });
+
+    // Simple client-side submit validator + logger
+    document.addEventListener('DOMContentLoaded', function () {
+        var form = document.getElementById('policyForm');
+        if (!form) return;
+
+        form.addEventListener('submit', function (e) {
+            var btn = form.querySelector('button[type="submit"]');
+
+            try {
+                // Read date values
+                var startStr = document.getElementById('start_date').value;
+                var endStr = document.getElementById('end_date').value;
+                var daysVal = document.getElementById('days').value;
+
+                var start = startStr ? new Date(startStr + 'T00:00:00') : null;
+                var end = endStr ? new Date(endStr + 'T00:00:00') : null;
+                var days = daysVal !== '' ? parseInt(daysVal, 10) : null;
+
+                // Prepare Jan 1 current year
+                var now = new Date();
+                var jan1 = new Date(now.getFullYear(), 0, 1); // month 0 = January
+
+                // Basic client-side checks
+                if (!start) {
+                    alert('Please provide a valid Start Date.');
+                    if (btn) btn.disabled = false;
+                    e.preventDefault();
+                    return;
+                }
+                if (start < jan1) {
+                    alert('Start date cannot be earlier than ' + jan1.toISOString().slice(0,10));
+                    if (btn) btn.disabled = false;
+                    e.preventDefault();
+                    return;
+                }
+                if (!end) {
+                    alert('Please provide a valid End Date.');
+                    if (btn) btn.disabled = false;
+                    e.preventDefault();
+                    return;
+                }
+                if (end <= start) {
+                    alert('End date must be later than the Start date.');
+                    if (btn) btn.disabled = false;
+                    e.preventDefault();
+                    return;
+                }
+
+                // If days provided, verify difference matches days
+                if (days !== null && !isNaN(days)) {
+                    // compute difference in days (end - start)
+                    var diffMs = end.getTime() - start.getTime();
+                    var diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24)); // whole days
+                    if (diffDays !== days) {
+                        alert('The difference between Start and End date (' + diffDays + ' days) does not match the Days field (' + days + ' days).');
+                        if (btn) btn.disabled = false;
+                        e.preventDefault();
+                        return;
+                    }
+                }
+
+                // All good — show submitting UI
+                console.log('Policy form submitting...', {
+                    action: form.getAttribute('action'),
+                    method: form.getAttribute('method'),
+                    timestamp: new Date().toISOString()
+                });
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerText = 'Submitting...';
+                }
+
+                // allow submit to proceed
+            } catch (err) {
+                console.error('Submit validator error:', err);
+                if (btn) btn.disabled = false;
+                // Let it submit so server side catches errors, or prevent: here we prevent to avoid silent failure
+                e.preventDefault();
+                alert('An unexpected error occurred in the form. See console for details.');
+            }
+        });
+    });
 </script>
+
+@push('scripts')
+<script>
+    // Function to calculate the end date based on start date and days
+    function calculateEndDate() {
+        const startDateInput = document.getElementById('start_date');
+        const daysInput = document.getElementById('days');
+        const endDateInput = document.getElementById('end_date');
+
+        const startDateValue = startDateInput.value;
+        const daysValue = parseInt(daysInput.value);
+
+        if (startDateValue && !isNaN(daysValue) && daysValue >= 0) {
+            // Use date manipulation for accurate calculation
+            let date = new Date(startDateValue);
+            
+            // Add 'days' plus one to the start date to get the end date.
+            // A 365-day policy (days=364) means the end date is 364 days AFTER the start date.
+            // We use 364 days here (the value the user entered in the input).
+            date.setDate(date.getDate() + daysValue); 
+
+            // Format the calculated date as YYYY-MM-DD
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+
+            endDateInput.value = `${year}-${month}-${day}`;
+        } else {
+            endDateInput.value = '';
+        }
+    }
+
+    // Attach the function to input change events
+    document.addEventListener('DOMContentLoaded', function() {
+        const startDateInput = document.getElementById('start_date');
+        const daysInput = document.getElementById('days');
+        
+        if (startDateInput) startDateInput.addEventListener('change', calculateEndDate);
+        if (daysInput) daysInput.addEventListener('input', calculateEndDate);
+        
+        // Run calculation once on page load to set the default end date
+        calculateEndDate(); 
+    });
+</script>
+@endpush
 
 @endsection

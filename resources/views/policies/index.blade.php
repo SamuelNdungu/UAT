@@ -122,8 +122,7 @@
                             <th>Gross Premium</th>
                             <th>Net Premium</th>
                             <th>Paid Amount</th>
-                            <th>Balance</th>                            
-                            <th>Documents</th>
+                            <th>Balance</th>   
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -141,7 +140,25 @@
                             <td>{{ $policy->days }}</td>
                             <td>{{ \Carbon\Carbon::parse($policy->end_date)->format('d-m-Y') }}</td>
                             <td>{{ $policy->insurer_name }}</td>
-                            <td>{{ $policy->policy_no }}</td>
+                            <td>
+                                {{-- Policy Number --}}
+                                {{ $policy->policy_no }}
+
+                                {{-- Renewal badge: if this policy was created as a renewal (has a renewal record pointing to an original) --}}
+                                @php
+                                    $renewalRecord = $policy->renewalsAsRenewed()->with('originalPolicy')->first();
+                                @endphp
+
+                                @if($renewalRecord)
+                                    <span class="badge bg-info" title="Renewal of policy #{{ $renewalRecord->originalPolicy->policy_no ?? $renewalRecord->original_policy_id }}">
+                                        Renewal
+                                    </span>
+                                @elseif($policy->renewalsAsOriginal()->exists())
+                                    <span class="badge bg-success" title="Has renewals">
+                                        Renewed
+                                    </span>
+                                @endif
+                            </td>
                             <td>{{ $policy->reg_no }}</td>
                             <td>{{ $policy->make }}</td>
                             <td>{{ $policy->model }}</td>
@@ -159,39 +176,28 @@
                             <td>{{ number_format($policy->aa_charges, 2) }}</td>
                             <td>{{ number_format($policy->other_charges, 2) }}</td>
                             <td>{{ number_format($policy->gross_premium, 2) }}</td>
-                            <td>{{ number_format($policy->net_premium, 2) }}</td>
-                            <td>{{ number_format($policy->paid_amount, 2) }}</td>
-                            <td>{{ number_format($policy->balance, 2) }}</td>
-                            <td>
-                                @if($policy->documents)
-                                    @php
-                                        $filePath = public_path('storage/uploads/' . basename($policy->documents));
-                                    @endphp
-                                    @if(file_exists($filePath))
-                                        @php
-                                            $fileName = basename($policy->documents);
-                                        @endphp
-                                        <a href="{{ asset('storage/uploads/' . $fileName) }}" download>{{ $fileName }}</a>
-                                    @else
-                                        File not found
-                                    @endif
-                                @endif
-                                <td style="white-space: nowrap; position: sticky; right: 0; background-color: white; z-index: 100; padding: 2px; border-left: 1px solid #ddd;">
-                                    <a href="{{ route('policies.show', $policy->id) }}" class="btn btn-info btn-xs" aria-label="View" title="View" style="font-size: 0.5rem; padding: 2px 5px;">
-                                        <i class="fas fa-eye" aria-hidden="true" style="font-size: 0.5rem;"></i>
-                                    </a>
-                                    <a href="{{ route('policies.edit', $policy->id) }}" class="btn btn-warning btn-xs" aria-label="Edit" title="Edit" style="font-size: 0.5rem; padding: 2px 5px;">
-                                        <i class="fas fa-pencil-alt" aria-hidden="true" style="font-size: 0.5rem;"></i>
-                                    </a>
-                                    <form action="{{ route('policies.destroy', $policy->id) }}" method="POST" style="display:inline;" onsubmit="return confirmDelete()">
+...
+                            <td>{{ number_format($policy->net_premium ?? 0, 2) }}</td>
+                            <td>{{ number_format($policy->paid_amount ?? 0, 2) }}</td>
+                            <td>{{ number_format($policy->balance ?? 0, 2) }}</td>
+                            <td class="actions-cell">
+                                {{-- The 'View' button is always available --}}
+                                <a href="{{ route('policies.show', $policy->id) }}" class="btn btn-sm btn-info" title="View"><i class="fas fa-eye"></i></a>
+
+                                {{-- EDIT and DELETE buttons are ONLY available if the policy has NOT been renewed --}}
+                                @if (!$policy->isRenewed())
+                                    <a href="{{ route('policies.edit', $policy->id) }}" class="btn btn-sm btn-warning" title="Edit"><i class="fas fa-edit"></i></a>
+                                    
+                                    <form action="{{ route('policies.destroy', $policy->id) }}" method="POST" style="display:inline-block;">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="btn btn-danger btn-xs" aria-label="Delete" title="Delete" style="font-size: 0.5rem; padding: 2px 5px;">
-                                            <i class="fas fa-trash" aria-hidden="true" style="font-size: 0.5rem;"></i>
-                                        </button>
+                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirmDelete()" title="Delete"><i class="fas fa-trash"></i></button>
                                     </form>
-                                </td>
+                                @else
+                                    <span class="badge bg-secondary" title="Policy has been renewed. Cannot modify.">Renewed</span>
+                                @endif
                             </td>
+                             
                         </tr>
                         @endforeach
                     </tbody>
@@ -227,8 +233,7 @@
                             <th>Gross Premium</th>
                             <th>Net Premium</th>
                             <th>Paid Amount</th>
-                            <th>Balance</th>
-                            <th>Documents</th>
+                            <th>Balance</th> 
                             <th>Actions</th>
                         </tr>
                     </tfoot>

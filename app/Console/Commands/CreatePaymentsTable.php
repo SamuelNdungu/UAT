@@ -1,25 +1,30 @@
 <?php
 
-namespace App\Console;
+namespace App\Console\Commands;
 
-use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+use Illuminate\Console\Command;
 
-class Kernel extends ConsoleKernel
+class CreatePaymentsTable extends Command
 {
-    protected $commands = [
-        Commands\CreatePaymentsTable::class,
-    ];
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
+    protected $signature = 'app:create-payments-table';
 
-    protected function schedule(Schedule $schedule)
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
+    protected $description = 'Command description';
+
+    /**
+     * Execute the console command.
+     */
+    public function handle()
     {
-        // Schedule your commands here if needed
-    }
-
-    protected function commands()
-    {
-        $this->load(__DIR__.'/Commands');
-
-        require base_path('routes/console.php');
+        $this->info('Command executed successfully!');
     }
 }

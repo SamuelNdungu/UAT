@@ -1,279 +1,454 @@
 @extends('layouts.appPages')
 
 @section('content')
-    <div class="container">
-        <h3 class="my-4 text-center">View Details</h3>
+<div class="container py-4">
+    <style>
+        /* Modern Design Palette & Utility Classes */
+        :root {
+            --primary-blue: #007bff; /* Standard professional blue */
+            --light-bg: #f8f9fa;     /* Very light grey background */
+            --text-dark: #343a40;     /* Dark text */
+            --text-muted: #6c757d;    /* Muted text */
+            --shadow-subtle: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            --shadow-md: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+        }
 
-        <!-- Client Details Section -->
-        <div class="group-heading bg-primary text-white p-2 mb-4">Client Details</div>
-        <div class="row mb-4">
-            <div class="col-md-4 form-group">
-                <label>File No:</label>
-                <input type="text" class="form-control" value="{{ $policy->fileno }}" readonly>
+        /* --- Global Structure and Cards --- */
+        .card-modern {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            box-shadow: var(--shadow-subtle);
+            margin-bottom: 1.5rem;
+            transition: all 0.2s;
+        }
+
+        /* --- Summary Cards (Top Row) --- */
+        .summary-row {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+        }
+        .summary-card {
+            flex: 1 1 200px;
+            padding: 1.25rem;
+            box-shadow: var(--shadow-md);
+            border: none;
+        }
+        .summary-title {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+        .summary-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        /* --- Section Styling (Main Content) --- */
+        .section-header-modern {
+            padding: 0.75rem 1.25rem;
+            background-color: var(--light-bg);
+            border-bottom: 1px solid #e9ecef;
+            border-radius: 0.5rem 0.5rem 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+        }
+
+        /* --- Key-Value List --- */
+        .detail-list {
+            padding: 1.25rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem 2rem;
+        }
+        .detail-item {
+            display: flex;
+        }
+        .detail-label {
+            min-width: 140px;
+            color: var(--text-muted);
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+        .detail-value {
+            color: var(--text-dark);
+            font-weight: 600;
+        }
+
+        /* --- Financial Section Mini-Card Styles --- */
+        .mini-card {
+            background: var(--light-bg);
+            border-radius: 0.35rem;
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--primary-blue); /* Primary accent */
+            height: calc(100% - 1rem); /* Fill column height */
+        }
+        .mini-card-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+        .mini-card-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+        .mini-card.accent-success { border-left-color: #28a745; }
+        .mini-card.accent-warning { border-left-color: #ffc107; }
+
+        /* Gross Premium Total Card */
+        .total-card {
+            background-color: var(--primary-blue);
+            color: #fff;
+            padding: 1.0rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            box-shadow: var(--shadow-md);
+        }
+        .total-card .summary-title {
+            color: rgba(255, 255, 255, 0.75);
+            font-size: 1rem;
+        }
+        .total-card .summary-value {
+            color: #fff;
+            font-size: 2rem;
+            line-height: 1.2;
+        }
+
+        /* --- Badges and Text --- */
+        .badge-pill-modern {
+            padding: 0.35rem 0.75rem;
+            border-radius: 50rem;
+            font-size: 0.85rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .badge-active { background-color: #28a745; color: #fff; } /* Green */
+        .badge-inactive { background-color: #dc3545; color: #fff; } /* Red */
+        .preserve-formatting { 
+            white-space: pre-wrap; 
+            padding: 1.25rem;
+            color: var(--text-dark);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 767.98px) {
+            .summary-row { gap: 1rem; }
+            .summary-card { flex: 1 1 100%; }
+            .detail-list { grid-template-columns: 1fr; }
+            .detail-label { min-width: 120px; }
+        }
+    </style>
+
+    <h2 class="mb-5 text-center text-dark">Policy Details: {{ $policy->fileno }}</h2>
+
+            <div style="justify-self:end; display:flex; align-items:center; gap:0.5rem;">
+                @if(isset($policy->status))
+                    <span class="badge-pill-modern {{ $policy->status ? 'badge-active' : 'badge-inactive' }}">
+                        {{ $policy->status ? 'Active' : 'Expired' }}
+                    </span>
+                @endif
             </div>
-            <div class="col-md-4 form-group">
-                <label>Customer Code</label>
-                <input type="text" class="form-control" value="{{ $policy->customer_code }}" readonly>
-            </div>
-            <div class="col-md-4 form-group">
-                <label>Customer Name</label>
-                <input type="text" class="form-control" value="{{ $policy->customer_name }}" readonly>
-            </div>
+    {{-- REPLACED: COMBINED POLICY & CLIENT SUMMARY -> POLICY SNAPSHOT --}}
+    <div class="card-modern" style="margin-bottom:1.5rem;">
+        <div class="section-header-modern">
+            <div class="section-title">Customer Details</div>
+             
         </div>
+        <div class="detail-list" style="align-items:center;">
+            <div class="detail-item">
+                <div class="detail-label">File No:</div>
+                <div class="detail-value">{{ $policy->fileno }}</div>
+            </div>
 
-        <!-- Policy Details Section -->
-        <div class="group-heading bg-primary text-white p-2 mb-4">Policy Details</div>
-        <div class="row mb-4">
-            <div class="col-md-4 form-group">
-                <label>Policy No</label>
-                <input type="text" class="form-control" value="{{ $policy->policy_no }}" readonly>
+            <div class="detail-item">
+                <div class="detail-label">Customer Code:</div>
+                <div class="detail-value">{{ $policy->customer_code }}</div>
             </div>
-            <div class="col-md-4 form-group">
-                <label>Policy Type</label>
-                <input type="text" class="form-control" value="{{ $policy->policy_type_name }}" readonly>
-                <input type="hidden" id="policy_type_id" value="{{ $policy->policy_type_id }}">
+
+            <div class="detail-item">
+                <div class="detail-label">Customer Name:</div>
+                <div class="detail-value">{{ $policy->customer_name }}</div>
             </div>
-            <div class="col-md-4 form-group">
-                <label>Coverage</label>
-                <input type="text" class="form-control" value="{{ $policy->coverage }}" readonly>
+
+                        <div class="detail-item">
+                <div class="detail-label">Phone:</div>
+                <div class="detail-value">{{ $policy->customer->phone ?? $policy->phone ?? '-' }}</div>
             </div>
+            <div class="detail-item">
+                <div class="detail-label">Email:</div>
+                <div class="detail-value">{{ $policy->customer->email ?? $policy->email ?? '-' }}</div>
+            </div>
+
+
+
         </div>
-        <div class="row mb-4">
-            <div class="col-md-4 form-group">
-                <label>Insurer</label>
-                <input type="text" class="form-control" value="{{ $policy->insurer_name }}" readonly>
-            </div>
-            <div class="col-md-3 form-group">
-                <label>Start Date</label>
-                <input type="text" class="form-control" value="{{ \Carbon\Carbon::parse($policy->start_date)->format('Y-m-d') }}" readonly>
-            </div>
-            <div class="col-md-2 form-group">
-                <label>Days</label>
-                <input type="text" class="form-control" value="{{ $policy->days }}" readonly>
-            </div>
-            <div class="col-md-3 form-group">
-                <label>End Date</label>
-                <input type="text" class="form-control" value="{{ \Carbon\Carbon::parse($policy->end_date)->format('Y-m-d') }}" readonly>
-            </div>
+    </div>
+
+    {{-- MAIN CONTENT STACKED CARDS --}}
+    
+    {{-- Policy Details Section (Full-width) --}}
+    <div class="card-modern">
+        <div class="section-header-modern">
+            <div class="section-title">Policy & Coverage</div>
+             
         </div>
+        <div class="detail-list">
+<div class="detail-item">
+                <div class="detail-label">Policy No</div>
+                <div class="detail-value">{{ $policy->policy_no }}</div>
+            </div>
 
-        <!-- Vehicle Details Section -->
-        <div id="vehicleDetailsSection" class="group-heading bg-primary text-white p-2 mb-4" style="display: none;">
-            Vehicle Details
-        </div>
-        <div id="vehicleDetailsTable" class="row mb-4" style="display: none;">
-            <div class="row mb-4">
-                <div class="col-md-4 form-group">
-                    <label>Make</label>
-                    <input type="text" class="form-control" value="{{ $policy->make }}" readonly>
-                </div>
-                <div class="col-md-4 form-group">
-                    <label>Model</label>
-                    <input type="text" class="form-control" value="{{ $policy->model }}" readonly>
-                </div>
-                <div class="col-md-2 form-group">
-                    <label>Y.O.M</label>
-                    <input type="text" class="form-control" value="{{ $policy->yom }}" readonly>
-                </div>
-                <div class="col-md-2 form-group">
-                    <label>CC</label>
-                    <input type="text" class="form-control" value="{{ $policy->cc }}" readonly>
+            <div class="detail-item">
+                <div class="detail-label">Policy Period</div>
+                <div class="detail-value">
+                    {{ \Carbon\Carbon::parse($policy->start_date)->format('d M Y') }} — {{ \Carbon\Carbon::parse($policy->end_date)->format('d M Y') }}
                 </div>
             </div>
-            <div class="row mb-4">
-                <div class="col-md-4 form-group">
-                    <label>Body Type</label>
-                    <input type="text" class="form-control" value="{{ $policy->body_type }}" readonly>
-                </div>
-                <div class="col-md-4 form-group">
-                    <label>Chassis No</label>
-                    <input type="text" class="form-control" value="{{ $policy->chassisno }}" readonly>
-                </div>
-                <div class="col-md-4 form-group">
-                    <label>Engine No</label>
-                    <input type="text" class="form-control" value="{{ $policy->engine_no }}" readonly>
-                </div>
+
+            <div class="detail-item">
+                <div class="detail-label">Insurer</div>
+                <div class="detail-value">{{ $policy->insurer_name }}</div>
             </div>
+
+
+            <div class="detail-item"><div class="detail-label">Coverage:</div><div class="detail-value">{{ $policy->coverage }}</div></div>
+            <div class="detail-item"><div class="detail-label">Sum Insured:</div><div class="detail-value">KES {{ number_format($policy->sum_insured, 2) }}</div></div>
+            <div class="detail-item"><div class="detail-label">Rate:</div><div class="detail-value">{{ number_format($policy->rate, 2) }}%</div></div>
         </div>
+    </div>
 
-        <!-- Description Section -->
-        <div id="descriptionSection" class="group-heading bg-primary text-white p-2 mb-4">
-            Description
+    {{-- Vehicle / Description (Conditional Full-width) --}}
+    @php
+        // Check if any vehicle data exists to display the card
+        $hasVehicleData = $policy->reg_no || $policy->make || $policy->model;
+    @endphp
+
+    <div id="vehicle-card" class="card-modern" style="display:{{ $hasVehicleData ? 'block' : 'none' }}">
+        <div class="section-header-modern"><div class="section-title">Vehicle Details</div></div>
+        <div class="detail-list">
+            <div class="detail-item"><div class="detail-label">Registration No:</div><div class="detail-value">{{ $policy->reg_no }}</div></div>
+            <div class="detail-item"><div class="detail-label">Make / Model:</div><div class="detail-value">{{ $policy->make }} / {{ $policy->model }}</div></div>
+            <div class="detail-item"><div class="detail-label">Y.O.M / CC:</div><div class="detail-value">{{ $policy->yom }} / {{ $policy->cc }}</div></div>
+            <div class="detail-item"><div class="detail-label">Chassis / Engine:</div><div class="detail-value">{{ $policy->chassisno }} / {{ $policy->engine_no }}</div></div>
         </div>
-        <div id="descriptionContent" class="form-group mb-4">
-            <label>Description</label>
-            <textarea class="form-control" readonly>{{ $policy->description }}</textarea>
-        </div>
-<!-- Financial Details Section -->
-<div class="group-heading bg-primary text-white p-2 mb-4">Financial Details</div>
+    </div>
 
-<div class="row mb-4">
-    <div class="col-md-3 form-group">
-        <label>Sum Insured</label>
-        <input type="text" class="form-control" value="{{ $policy->sum_insured }}" readonly>
+    <div id="description-card" class="card-modern" style="display:{{ $hasVehicleData ? 'none' : 'block' }}">
+        <div class="section-header-modern"><div class="section-title">Description</div></div>
+        <div class="preserve-formatting">{{ $policy->description }}</div>
     </div>
-    <div class="col-md-2 form-group">
-        <label>Rate</label>
-        <input type="text" class="form-control" value="{{ $policy->rate }}" readonly>
-    </div>
-    <div class="col-md-3 form-group">
-        <label>Premium</label>
-        <input type="text" class="form-control" value="{{ $policy->premium }}" readonly>
-    </div>
-    <div class="col-md-2 form-group">
-        <label>C. Rate</label>
-        <input type="text" class="form-control" value="{{ $policy->c_rate }}" readonly>
-    </div>
-    <div class="col-md-2 form-group">
-        <label>Commission</label>
-        <input type="text" class="form-control" value="{{ $policy->commission }}" readonly>
-    </div>
-</div>
 
-<div class="row mb-4">
-    <div class="col-md-2 form-group">
-        <label>WHT</label>
-        <input type="text" class="form-control" value="{{ $policy->wht }}" readonly>
-    </div>
-    <div class="col-md-2 form-group">
-        <label>S. Duty</label>
-        <input type="text" class="form-control" value="{{ $policy->s_duty }}" readonly>
-    </div>
-    <div class="col-md-2 form-group">
-        <label>T. Levy</label>
-        <input type="text" class="form-control" value="{{ $policy->t_levy }}" readonly>
-    </div>
-    <div class="col-md-2 form-group">
-        <label>PCF Levy</label>
-        <input type="text" class="form-control" value="{{ $policy->pcf_levy }}" readonly>
-    </div>
-    <div class="col-md-2 form-group">
-        <label>Policy Charge</label>
-        <input type="text" class="form-control" value="{{ $policy->policy_charge }}" readonly>
-    </div>
-    <div class="col-md-2 form-group">
-        <label>PVT</label>
-        <input type="text" class="form-control" value="{{ $policy->pvt }}" readonly>
-    </div>
-</div>
-
-<div class="row mb-4">
-    <div class="col-md-2 form-group">
-        <label>Excess</label>
-        <input type="text" class="form-control" value="{{ number_format($policy->excess, 2) }}" readonly>
-    </div>
-    <div class="col-md-2 form-group">
-        <label>Courtesy Car</label>
-        <input type="text" class="form-control" value="{{ number_format($policy->courtesy_car, 2) }}" readonly>
-    </div>
-    <div class="col-md-2 form-group">
-        <label>PPL</label>
-        <input type="text" class="form-control" value="{{ number_format($policy->ppl, 2) }}" readonly>
-    </div>
-    <div class="col-md-2 form-group">
-        <label>Road Rescue</label>
-        <input type="text" class="form-control" value="{{ number_format($policy->road_rescue, 2) }}" readonly>
-    </div>
-    <div class="col-md-2 form-group">
-        <label>Other Charges</label>
-        <input type="text" class="form-control" value="{{ number_format($policy->other_charges, 2) }}" readonly>
-    </div>
-    <div class="col-md-2 form-group">
-        <label>Gross Premium</label>
-        <input type="text" class="form-control" value="{{ number_format($policy->gross_premium, 2) }}" readonly>
-    </div>
-</div>
-<div class="row mb-4">
-    <div class="col-md-2 form-group">
-        <label>Net Premium</label>
-        <input type="text" class="form-control" value="{{ number_format($policy->net_premium, 2) }}" readonly>
-    </div>
-</div>
-</div> 
-
-
-
-
+    {{-- FINANCIAL SECTION - IMPROVED LAYOUT --}}
+    <div class="card-modern">
+        <div class="section-header-modern"><div class="section-title">Financial Details (KES)</div></div>
         
-            
-        
+        <div class="p-4">
+            {{-- Gross Premium Total highlighted in a separate card for maximum impact --}}
+            <div class="total-card">
+                <div class="summary-title">TOTAL GROSS PREMIUM</div>
+                <div class="summary-value">KES {{ number_format($policy->gross_premium, 2) }}</div>
+            </div>
 
-        <!-- Cover Details Section -->
-        <div class="group-heading bg-primary text-white p-2 mb-4">Cover Details</div>
-        <div class="form-group mb-4">
-            <label>Features</label>
-            <textarea class="form-control" readonly>{{ $policy->cover_details }}</textarea>
+            <div class="row">
+                {{-- Metrics in smaller, distinct mini-cards (4 columns on md, 2 on sm) --}}
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card">
+                        <div class="mini-card-label">Premium</div>
+                        <div class="mini-card-value">{{ number_format($policy->premium, 2) }}</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card accent-success">
+                        <div class="mini-card-label">Commission</div>
+                        <div class="mini-card-value text-success">{{ number_format($policy->commission, 2) }}</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card">
+                        <div class="mini-card-label">Net Premium</div>
+                        <div class="mini-card-value">{{ number_format($policy->net_premium, 2) }}</div>
+                    </div>
+                </div>
+
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card">
+                        <div class="mini-card-label">PVT</div>
+                        <div class="mini-card-value">{{ number_format($policy->pvt ?? 0, 2) }}</div>
+                    </div>
+                </div>
+
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card">
+                        <div class="mini-card-label">PPL</div>
+                        <div class="mini-card-value">{{ number_format($policy->ppl ?? 0, 2) }}</div>
+                    </div>
+                </div>
+
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card">
+                        <div class="mini-card-label">Excess</div>
+                        <div class="mini-card-value">{{ number_format($policy->excess ?? 0, 2) }}</div>
+                    </div>
+                </div>
+
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card">
+                        <div class="mini-card-label">Courtesy Car</div>
+                        <div class="mini-card-value">{{ number_format($policy->courtesy_car ?? 0, 2) }}</div>
+                    </div>
+                </div>
+
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card">
+                        <div class="mini-card-label">S. Duty</div>
+                        <div class="mini-card-value">{{ number_format($policy->s_duty ?? 0, 2) }}</div>
+                    </div>
+                </div>
+
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card">
+                        <div class="mini-card-label">T. Levy</div>
+                        <div class="mini-card-value">{{ number_format($policy->t_levy ?? 0, 2) }}</div>
+                    </div>
+                </div>
+
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card">
+                        <div class="mini-card-label">PCF Levy</div>
+                        <div class="mini-card-value">{{ number_format($policy->pcf_levy ?? 0, 2) }}</div>
+                    </div>
+                </div>
+
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card">
+                        <div class="mini-card-label">Policy Charge</div>
+                        <div class="mini-card-value">{{ number_format($policy->policy_charge ?? 0, 2) }}</div>
+                    </div>
+                </div>
+
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card">
+                        <div class="mini-card-label">Other Charges</div>
+                        <div class="mini-card-value">{{ number_format($policy->other_charges ?? 0, 2) }}</div>
+                    </div>
+                </div>
+
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card">
+                        <div class="mini-card-label">Road Rescue</div>
+                        <div class="mini-card-value">{{ number_format($policy->road_rescue ?? 0, 2) }}</div>
+                    </div>
+                </div>
+             </div>
         </div>
-        <div class="form-group mb-4">
-            <label>Documents</label>
-            <table class="table table-bordered">
-                <thead>
+    </div>
+    {{-- END FINANCIAL SECTION --}}
+
+    {{-- Cover Details (Full-width) --}}
+    <div class="card-modern">
+        <div class="section-header-modern"><div class="section-title">Cover Details</div></div>
+        <div class="preserve-formatting">{{ $policy->cover_details }}</div>
+    </div>
+
+    {{-- Documents Section (Full-width) --}}
+    <div class="card-modern">
+        <div class="section-header-modern"><div class="section-title">Documents</div></div>
+        <div class="p-3">
+            <table class="table table-sm table-striped table-hover">
+                <thead class="table-primary">
                     <tr>
-                        <th>#</th>
+                        <th style="width: 50px;">#</th>
                         <th>Description</th>
-                        <th>Download</th>
+                        <th style="width: 30%;">File</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($policy->documents as $index => $document)
-                        <tr>
-                            <td>{{ $index + 1 }}</td>
-                            <td>{{ $document['description'] ?? 'No description provided' }}</td>
-                            <td>
-                                @if($document['path'])
-                                    <a href="{{ asset('storage/' . $document['path']) }}" download="{{ $document['name'] }}">
-                                        {{ $document['name'] }}
-                                    </a>
-                                @else
-                                    <p>No document uploaded.</p>
-                                @endif
-                            </td>
-                        </tr>
-                    @endforeach
+                    @if(is_array($policy->documents) || $policy->documents instanceof \Illuminate\Support\Collection)
+                        @foreach($policy->documents as $i => $doc)
+                            @php
+                                $path = $doc['file'] ?? ($doc['path'] ?? null);
+                                $name = $doc['original_name'] ?? ($doc['name'] ?? basename($path ?? 'file'));
+                            @endphp
+                            <tr>
+                                <td>{{ $i+1 }}</td>
+                                <td>{{ $doc['description'] ?? '—' }}</td>
+                                <td>
+                                    @if($path)
+                                        <a href="{{ asset('storage/' . $path) }}" download class="text-primary">{{ $name }}</a>
+                                    @else
+                                        <span class="text-muted small">No file uploaded</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    @else
+                        <tr><td colspan="3" class="text-center text-muted">No documents found for this policy.</td></tr>
+                    @endif
                 </tbody>
             </table>
         </div>
-
-        <!-- Action Buttons -->
-        <div class="row">
-            <div class="col-md-2">
-                <a href="{{ route('policies.index') }}" class="btn btn-primary">Go Back</a>
-            </div>
-            <div class="col-md-2 text-right">
-                <a href="{{ route('policies.edit', $policy->id) }}" class="btn btn-warning">Edit Policy</a>
-            </div>
-            <div class="col-md-2 text-right">
-                <a href="{{ route('policies.printDebitNote', $policy->id) }}" class="btn btn-success" target="_blank">Debit Note</a>
-            </div>
-        </div>
     </div>
 
-    <!-- JS Scripts -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-        $(document).ready(function() {
-            // Hide/show sections based on policy type
-            togglePolicyTypeFields();
-        });
+    {{-- Actions (Full-width, right-aligned) --}}
+    <div class="d-flex justify-content-end gap-3 mb-5">
+        @php
+            $actionButtons = [
+                ['url' => route('policies.index'), 'label' => 'Go Back', 'icon' => 'fas fa-arrow-left', 'variant' => 'outline-primary', 'attrs' => ['title' => 'Back to list', 'aria-label' => 'Back to list']],
+                ['url' => route('policies.edit', $policy->id), 'label' => 'Edit Policy', 'icon' => 'fas fa-edit', 'variant' => 'warning', 'attrs' => ['title' => 'Edit policy', 'aria-label' => 'Edit policy']],
+                ['url' => route('policies.printDebitNote', $policy->id), 'label' => 'Print Debit Note', 'icon' => 'fas fa-file-invoice', 'variant' => 'success', 'target' => '_blank', 'attrs' => ['title' => 'Print debit note', 'aria-label' => 'Print debit note']],
+                ['url' => route('renewals.renew', $policy->id), 'label' => 'Renew', 'icon' => 'fas fa-sync-alt', 'variant' => 'outline-warning', 'attrs' => ['title' => 'Create renewal', 'aria-label' => 'Create renewal']],
+                ['url' => route('policies.history', $policy->id), 'label' => 'View History', 'icon' => 'fas fa-history', 'variant' => 'secondary', 'attrs' => ['title' => 'View renewal history', 'aria-label' => 'View renewal history']],
+            ];
+        @endphp
+        
+        @foreach($actionButtons as $button)
+            <a href="{{ $button['url'] }}" 
+               class="btn btn-{{ $button['variant'] }} d-flex align-items-center" 
+               @foreach($button['attrs'] as $key => $val) {{ $key }}="{{ $val }}" @endforeach
+               @if(isset($button['target'])) target="{{ $button['target'] }}" @endif>
+                <i class="{{ $button['icon'] }} me-2"></i> {{ $button['label'] }}
+            </a>
+        @endforeach
+    </div>
+</div>
 
-        function togglePolicyTypeFields() {
-            const policyTypeId = document.getElementById('policy_type_id').value; // Use the policy type ID from the policy
-            const vehicleDetailsSectionHeading = document.getElementById('vehicleDetailsSection');
-            const vehicleDetailsTable = document.getElementById('vehicleDetailsTable');
-            const descriptionSectionHeading = document.getElementById('descriptionSection');
-            const descriptionContent = document.getElementById('descriptionContent');
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // NOTE: Ensure there is a hidden input with the policy type ID somewhere on the page, 
+        // e.g., <input type="hidden" id="policy_type_id" value="{{ $policy->policy_type_id }}">
+        
+        const policyTypeIdElement = document.getElementById('policy_type_id');
+        let policyTypeId = policyTypeIdElement ? policyTypeIdElement.value : null;
 
-            if (policyTypeId == '35' || policyTypeId == '36' || policyTypeId == '37') {
-                vehicleDetailsSectionHeading.style.display = 'block';
-                vehicleDetailsTable.style.display = 'block';
-                descriptionSectionHeading.style.display = 'none';
-                descriptionContent.style.display = 'none';
+        const vehicleCard = document.getElementById('vehicle-card');
+        const descriptionCard = document.getElementById('description-card');
+
+        // Policy types that display vehicle details (Motor-related IDs: 35, 36, 37)
+        const motorPolicyIds = ['35', '36', '37'];
+
+        if (policyTypeId && vehicleCard && descriptionCard) {
+            if (motorPolicyIds.includes(String(policyTypeId))) {
+                vehicleCard.style.display = 'block';
+                descriptionCard.style.display = 'none';
             } else {
-                vehicleDetailsSectionHeading.style.display = 'none';
-                vehicleDetailsTable.style.display = 'none';
-                descriptionSectionHeading.style.display = 'block';
-                descriptionContent.style.display = 'block';
+                vehicleCard.style.display = 'none';
+                descriptionCard.style.display = 'block';
             }
         }
-    </script>
+    });
+</script>
 @endsection

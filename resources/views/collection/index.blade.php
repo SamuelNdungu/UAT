@@ -84,11 +84,14 @@
                         <tr>
                             <th>File No.</th>
                             <th>Entry Date</th>
+                            <th>Customer Code</th>
                             <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
                             <th>Policy Type</th>
-                            <th>Start Date</th>
-                            <th>End Date</th> 
                             <th>Reg.No</th>
+                            <th>Start Date</th>
+                            <th>End Date</th>
                             <th>Gross Premium</th>
                             <th>Paid Amount</th>
                             <th>Due Amount</th>
@@ -97,15 +100,49 @@
                         </tr>
                     </thead>
                     <tbody style="white-space: nowrap;">
+                        @php $customerCache = []; @endphp
                         @foreach($filteredPolicies as $policy)
                         <tr>
                             <td>{{ $policy->fileno }}</td>
                             <td>{{ \Carbon\Carbon::parse($policy->created_at)->format('d-m-Y') }}</td>
+                            <td>{{ $policy->customer_code ?? '-' }}</td>
                             <td>{{ $policy->customer_name }}</td>
+                            {{-- Email: prefer fields on $policy, fallback to customers table (cached) --}}
+                            @php
+                                $email = $policy->email ?? $policy->customer_email ?? null;
+                                if (!$email) {
+                                    $code = $policy->customer_code ?? null;
+                                    if ($code) {
+                                        if (!isset($customerCache[$code])) {
+                                            $customerCache[$code] = \App\Models\Customer::where('customer_code', $code)->first(['email','phone']);
+                                        }
+                                        $email = $customerCache[$code]->email ?? null;
+                                    }
+                                }
+                                $email = $email ?? '-';
+                            @endphp
+                            <td>{{ $email }}</td>
+
+                            {{-- Phone: prefer fields on $policy, fallback to customers table (cached) --}}
+                            @php
+                                $phone = $policy->phone ?? $policy->telephone ?? null;
+                                if (!$phone) {
+                                    $code = $policy->customer_code ?? $policy->customer_code ?? null;
+                                    if ($code) {
+                                        if (!isset($customerCache[$code])) {
+                                            $customerCache[$code] = \App\Models\Customer::where('customer_code', $code)->first(['email','phone']);
+                                        }
+                                        $phone = $customerCache[$code]->phone ?? null;
+                                    }
+                                }
+                                $phone = $phone ?? '-';
+                            @endphp
+                            <td>{{ $phone }}</td>
+
                             <td>{{ $policy->policy_type_name }}</td>
-                            <td>{{ \Carbon\Carbon::parse($policy->start_date)->format('d-m-Y') }}</td>
-                            <td>{{ \Carbon\Carbon::parse($policy->end_date)->format('d-m-Y') }}</td> 
                             <td>{{ $policy->reg_no }}</td>
+                            <td>{{ \Carbon\Carbon::parse($policy->start_date)->format('d-m-Y') }}</td>
+                            <td>{{ \Carbon\Carbon::parse($policy->end_date)->format('d-m-Y') }}</td>
                             <td>{{ number_format($policy->gross_premium, 2) }}</td>
                             <td>{{ number_format($policy->paid_amount, 2) }}</td>
                             <td>{{ number_format($policy->balance, 2) }}</td> <!-- Due Amount -->
@@ -127,11 +164,14 @@
                         <tr>
                             <th>File No.</th>
                             <th>Buss Date</th>
+                            <th>Customer Code</th>
                             <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
                             <th>Policy Type</th>
-                            <th>Start Date</th>
-                            <th>End Date</th> 
                             <th>Reg.No</th>
+                            <th>Start Date</th>
+                            <th>End Date</th>
                             <th>Gross Premium</th>
                             <th>Paid Amount</th>
                             <th>Due Amount</th>

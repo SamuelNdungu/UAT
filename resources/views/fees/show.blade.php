@@ -56,17 +56,17 @@
     </div>
 
     <!-- Action Buttons -->
+    @php
+        $actionButtons = [
+            ['url' => route('fees.index'), 'label' => 'Go Back', 'icon' => 'fas fa-arrow-left', 'variant' => 'primary', 'attrs' => ['title' => 'Back to list', 'aria-label' => 'Back to list']],
+            ['url' => route('fees.edit', $fee->id), 'label' => 'Edit Fee', 'icon' => 'fas fa-edit', 'variant' => 'warning', 'attrs' => ['title' => 'Edit fee', 'aria-label' => 'Edit fee']],
+            ['url' => route('fees.create', ['customer_id' => $fee->customer ? $fee->customer->id : '']), 'label' => 'Create Invoice', 'icon' => 'fas fa-file-invoice', 'variant' => 'success', 'attrs' => ['title' => 'Create invoice', 'aria-label' => 'Create invoice']],
+        ];
+    @endphp
+
     <div class="row">
-        <div class="col-md-2">
-            <a href="{{ route('fees.index') }}" class="btn btn-primary">Go Back</a>
-        </div>
-        <div class="col-md-2">
-            <a href="{{ route('fees.edit', $fee->id) }}" class="btn btn-warning">Edit Fee</a>
-        </div>
-        <div class="col-md-3">
-            <a href="{{ route('fees.create', ['customer_id' => $fee->customer ? $fee->customer->id : '']) }}" class="btn btn-success">
-                <i class="fas fa-file-invoice"></i> Create Invoice
-            </a>
+        <div class="col-12">
+            @include('shared.action-buttons', ['buttons' => $actionButtons])
         </div>
     </div>
 </div>

@@ -41,6 +41,9 @@ class Customer extends Model
         'status',
         'user_id',
     ];
+    protected $casts = [
+        'status' => 'string',
+    ];
 
     // Relationship with Document
     public function documents()
