@@ -1,0 +1,2 @@
+# placeholder backup of malformed migration file
+# created to prevent Laravel migrator from attempting to load an empty migration

@@ -267,23 +267,16 @@ class PolicyController extends Controller
                 break;
         }
 
-        // Apply custom numeric ordering for fileno
-        if (\Schema::hasColumn((new Policy())->getTable(), 'fileno')) {
-            try {
-                $driver = DB::getPdo()->getAttribute(\PDO::ATTR_DRIVER_NAME);
-            } catch (\Exception $e) {
-                $driver = null;
-            }
-
-            if ($driver === 'pgsql') {
-                $query->orderByRaw("CAST(regexp_replace(policies.fileno, '\\D', '', 'g') AS INTEGER) DESC");
-            } elseif ($driver === 'mysql') {
-                $query->orderByRaw("CAST(SUBSTRING(policies.fileno, 4) AS UNSIGNED) DESC");
-            } else {
-                $query->orderBy('policies.fileno', 'desc');
-            }
+        // Enforce newest-first ordering server-side (prefer created_at, fallback to id)
+        // This is more reliable than client-side sorting for ensuring the newest policies appear first.
+        if (\Schema::hasColumn((new Policy())->getTable(), 'updated_at')) {
+            // Order by the Entry Date (updated_at) newest-first
+            $query->orderBy('policies.updated_at', 'desc');
+            // Secondary order by id to stabilise ordering when timestamps are identical
+            $query->orderBy('policies.id', 'desc');
         } elseif (\Schema::hasColumn((new Policy())->getTable(), 'created_at')) {
             $query->orderBy('policies.created_at', 'desc');
+            $query->orderBy('policies.id', 'desc');
         } else {
             $query->orderBy('policies.id', 'desc');
         }
@@ -349,13 +342,38 @@ class PolicyController extends Controller
     }
 
     /**
+     * Generate and stream a PDF of the credit note for the policy.
+     */
+    public function printCreditNote($id)
+    {
+        set_time_limit(120);
+
+        $policy = Policy::with('policyType', 'insurer', 'customer')->findOrFail($id);
+
+        $pdf = PDF::loadView('policies.credit_note_pdf', ['policy' => $policy])
+                   ->setPaper('a4', 'portrait')
+                   ->setOptions([
+                       'margin-top'    => 0,
+                       'margin-right'  => 0,
+                       'margin-bottom' => 0,
+                       'margin-left'   => 0,
+                   ]);
+
+        return $pdf->stream("credit_note_{$policy->fileno}.pdf");
+    }
+
+    /**
      * Show the form for editing the specified policy.
      * * @param int $id
      * @return \Illuminate\View\View
      */
     public function edit($id)
     {
-        $policy = Policy::with('customer')->findOrFail($id);
+        $policy = Policy::findOrFail($id);
+        if ($policy->isCancelled()) {
+            return redirect()->route('policies.show', $policy->id)
+                ->with('error', 'Canceled policies cannot be edited.');
+        }
 
         $availablePolicyTypes = PolicyTypes::pluck('type_name', 'id');
         $insurers = Insurer::pluck('name', 'id');
@@ -476,6 +494,12 @@ class PolicyController extends Controller
             }
             
             $policy = Policy::findOrFail($id);
+
+            // Check if the policy is canceled
+            if ($policy->isCancelled()) {
+                return redirect()->route('policies.show', $policy->id)
+                    ->with('error', 'Canceled policies cannot be updated.');
+            }
 
             // Assign the user_id from the authenticated user
             $validatedData['user_id'] = Auth::id();

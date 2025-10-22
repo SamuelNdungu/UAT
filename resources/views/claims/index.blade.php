@@ -88,7 +88,7 @@
         </div>
         <div class="card-body">
             <div class="table-responsive" style="overflow-x: auto; overflow-y: auto; max-width: 970px;">
-                <table id="myTable" class="table table-striped rounded-top" style="width: auto; font-size: 12px;">
+                <table id="myTable" class="table table-striped rounded-top dt-responsive nowrap" style="width:100%; font-size: 12px;">
                     <thead style="white-space: nowrap;">
                         <tr>
                             <th>#</th>
@@ -114,7 +114,7 @@
                     </thead>
                     <tbody style="white-space: nowrap;">
                         @foreach($claims as $claim)
-                            <tr class="claim-row" data-status="{{ $claim->status }}">
+                            <tr class="claim-row" data-status="{{ $claim->status }}" data-policy-status="{{ $claim->policy_status ?? ($claim->policy->status ?? '') }}">
                                 <td>{{ $claim->id }}</td>
                                 <td>{{ $claim->claim_number }}</td>
                                 <td>{{ $claim->fileno }}</td>
@@ -125,31 +125,41 @@
                                 <td>{{ $claim->customer_name ?? 'N/A' }}</td>
                                 <td>{{ $claim->customer_code }}</td>
                                 <td>{{ $claim->claimant_name }}</td>
-                                <td>{{ \Carbon\Carbon::parse($claim->reported_date)->format('d-m-Y') }}</td>
+                                <td class="reported-date">{{ \Carbon\Carbon::parse($claim->reported_date)->toIso8601String() }}</td>
                                 <td>{{ $claim->type_of_loss }}</td>
-                                <td>{{ \Carbon\Carbon::parse($claim->loss_date)->format('d-m-Y') }}</td>
-                                <td>{{ \Carbon\Carbon::parse($claim->followup_date)->format('d-m-Y') ?? 'N/A' }}</td>
+                                <td class="loss-date">{{ \Carbon\Carbon::parse($claim->loss_date)->toIso8601String() }}</td>
+                                <td class="followup-date">{{ $claim->followup_date ? \Carbon\Carbon::parse($claim->followup_date)->toIso8601String() : '' }}</td>
                                 <td>{{ number_format($claim->amount_claimed, 2) }}</td>
                                 <td>{{ $claim->amount_paid ? number_format($claim->amount_paid, 2) : 'N/A' }}</td>
                                 <td>{{ $claim->status }}</td>
                                 <td>
-                                    @if($claim->upload_file)
+                                    @php
+                                        $latestDoc = null;
+                                        try {
+                                            $latestDoc = \App\Models\Document::where('claim_id', $claim->id)->latest()->first();
+                                        } catch (\Exception $e) {
+                                            $latestDoc = null;
+                                        }
+                                    @endphp
+                                    @if($latestDoc && $latestDoc->path)
+                                        <a href="{{ route('claims.attachment', ['claim' => $claim->id, 'idx' => basename($latestDoc->path)]) }}" target="_blank">{{ \Illuminate\Support\Str::limit($latestDoc->original_name ?? basename($latestDoc->path), 30) }}</a>
+                                    @elseif($claim->upload_file)
                                         <a href="{{ asset('storage/' . $claim->upload_file) }}" target="_blank">View Document</a>
                                     @else
                                         N/A
                                     @endif
                                 </td>
                                 <td style="white-space: nowrap; position: sticky; right: 0; background-color: white; z-index: 100; padding: 2px; border-left: 1px solid #ddd;">
-                                    <a href="{{ route('claims.show', $claim->id) }}" class="btn btn-info btn-xs" aria-label="View" title="View" style="font-size: 0.5rem; padding: 2px 5px;">
+                                    <a href="{{ route('claims.show', $claim->id) }}" class="btn btn-info btn-xs action-view" aria-label="View" title="View" data-bs-toggle="tooltip" data-bs-placement="top" style="font-size: 0.5rem; padding: 2px 5px;">
                                         <i class="fas fa-eye" aria-hidden="true" style="font-size: 0.5rem;"></i>
                                     </a>
-                                    <a href="{{ route('claims.edit', $claim->id) }}" class="btn btn-warning btn-xs" aria-label="Edit" title="Edit" style="font-size: 0.5rem; padding: 2px 5px;">
+                                    <a href="{{ route('claims.edit', $claim->id) }}" class="btn btn-warning btn-xs action-edit" aria-label="Edit" title="Edit" data-bs-toggle="tooltip" data-bs-placement="top" style="font-size: 0.5rem; padding: 2px 5px;">
                                         <i class="fas fa-pencil-alt" aria-hidden="true" style="font-size: 0.5rem;"></i>
                                     </a>
                                     <form action="{{ route('claims.destroy', $claim->id) }}" method="POST" style="display:inline;" onsubmit="return confirmDelete()">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="btn btn-danger btn-xs" aria-label="Delete" title="Delete" style="font-size: 0.5rem; padding: 2px 5px;">
+                                        <button type="submit" class="btn btn-danger btn-xs action-delete" aria-label="Delete" title="Delete" data-bs-toggle="tooltip" data-bs-placement="top" style="font-size: 0.5rem; padding: 2px 5px;">
                                             <i class="fas fa-trash" aria-hidden="true" style="font-size: 0.5rem;"></i>
                                         </button>
                                     </form>
@@ -210,6 +220,36 @@ $(document).ready(function() {
         "pageLength": 10,
         "language": {
             "search": "Search claims:"
+        }
+    });
+
+    // Initialize Bootstrap tooltips if available
+    if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        tooltipTriggerList.map(function (el) { return new bootstrap.Tooltip(el) })
+    }
+
+    // Format ISO dates in the table to a human-friendly form (dd-mm-yyyy)
+    function fmtIsoToShort(iso) {
+        if (!iso) return 'N/A';
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return iso;
+        return ('0' + d.getDate()).slice(-2) + '-' + ('0' + (d.getMonth()+1)).slice(-2) + '-' + d.getFullYear();
+    }
+
+    $('#myTable tbody tr').each(function() {
+        var $tr = $(this);
+        var reported = $tr.find('.reported-date').text().trim();
+        var loss = $tr.find('.loss-date').text().trim();
+        var follow = $tr.find('.followup-date').text().trim();
+        if (reported) $tr.find('.reported-date').text(fmtIsoToShort(reported));
+        if (loss) $tr.find('.loss-date').text(fmtIsoToShort(loss));
+        if (follow) $tr.find('.followup-date').text(fmtIsoToShort(follow));
+
+        // Disable actions when policy is cancelled
+        var policyStatus = ($tr.data('policy-status') || '').toString().toLowerCase();
+        if (['canceled','cancelled','cancel'].indexOf(policyStatus) !== -1) {
+            $tr.find('.action-edit, .action-delete').addClass('disabled').attr('aria-disabled', 'true').off('click').attr('title', 'Action disabled — policy canceled');
         }
     });
 

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log; // Correctly import the Log facade
 use App\Models\Policy;
 use App\Mail\RenewalNotification;
+use App\Models\RenewalNotice;
 
 //use AfricasTalking\SDK\AfricasTalking;
 
@@ -19,6 +20,21 @@ class NotificationController extends Controller
     {
         $policy = Policy::findOrFail($id);
         Mail::to($policy->customer->email)->send(new RenewalNotification($policy));
+        // record notice
+        try {
+            RenewalNotice::create([
+                'fileno' => $policy->fileno,
+                'policy_id' => $policy->id,
+                'customer_code' => $policy->customer_code,
+                'channel' => 'email',
+                'sent_at' => now(),
+                'sent_by' => auth()->id() ?? null,
+                'message_id' => null,
+                'meta' => null,
+            ]);
+        } catch (\Throwable $ex) {
+            Log::error('NotificationController: failed to record renewal notice', ['error' => $ex->getMessage()]);
+        }
         return back()->with('success', 'Renewal email sent successfully.');
     }
 
@@ -40,6 +56,22 @@ class NotificationController extends Controller
         $message .= "File No: {$policy->fileno}";
 
         $this->send_message_bulksms($phone, $message);
+
+        // record sms notice
+        try {
+            RenewalNotice::create([
+                'fileno' => $policy->fileno,
+                'policy_id' => $policy->id,
+                'customer_code' => $policy->customer_code,
+                'channel' => 'sms',
+                'sent_at' => now(),
+                'sent_by' => auth()->id() ?? null,
+                'message_id' => null,
+                'meta' => ['body' => $message],
+            ]);
+        } catch (\Throwable $ex) {
+            Log::error('NotificationController: failed to record renewal sms notice', ['error' => $ex->getMessage()]);
+        }
 
         return back()->with('success', 'Renewal SMS sent successfully.');
     }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Policy;
 use App\Models\Renewal;
+use App\Models\RenewalNotice;
 use Illuminate\Support\Facades\DB;
 use App\Models\Customer;
 use App\Models\PolicyTypes;
@@ -72,6 +73,15 @@ class RenewalsController extends Controller
         // Fetch the filtered policies
         $policies = $policiesQuery->get();
 
+        // Load latest notice per fileno to display status quickly
+        $filenos = $policies->pluck('fileno')->unique()->values()->all();
+        $notices = RenewalNotice::whereIn('fileno', $filenos)
+            ->orderBy('sent_at', 'desc')
+            ->get()
+            ->groupBy('fileno')
+            ->map(function($group) { return $group->first(); })
+            ->toArray();
+
         // Calculate metrics for the cards
         $metrics = [
             'totalPolicies' => Policy::count(),
@@ -91,7 +101,7 @@ class RenewalsController extends Controller
         // Send renewal notifications for policies expiring in 30 days
         $this->sendRenewalNotifications();
 
-        return view('renewals.index', compact('policies', 'metrics'));
+        return view('renewals.index', compact('policies', 'metrics', 'notices'));
     }
 
     /**

@@ -1,156 +1,23 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Debit Note</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            color: #02066F;
-        }
-        /* Header: two-column layout (logo left, contact details right) */
-        .header {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 18px;
-            color: #25255F;
-            border-bottom: 2px solid #111184;
-            padding-bottom: 10px;
-            gap: 10px;
-        }
-        /* Left column: logo - fixed width */
-        .logo { flex: 0 0 40%; text-align: left; }
-        .logo img { width: 220px; height: auto; display:block; }
-        /* Right column: contact details - right aligned */
-        .contact-details {
-            flex: 1 1 60%;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end; /* right align */
-            text-align: left;
-            font-size: 11px;
-        }
-        .contact-item { margin-bottom: 4px; }
-        .contact-item i { margin-right: 8px; color:#02066F; min-width:16px; text-align:center; }
-        .date {
-            font-size: 10px;
-            text-align: right;
-            margin-top: 10px;
-        }
-        .group-heading {
-            background-color: #02066F;
-            color: white;
-            font-weight: bold;
-            padding: 10px;
-            margin-bottom: 5px;
-            border: 1px solid #02066F;
-        }
-        .form-group {
-            margin-bottom: 5px;
-        }
-        label {
-            font-weight: bold;
-            color: #02066F;
-            display: inline-block;
-            width: 150px;
-            font-size: 13px;
-        }
-        .value {
-            display: inline-block;
-            color: #02066F;
-            font-size: 13px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            margin-bottom: 10px;
-            border: 1px solid #ccc;
-        }
-        th, td {
-            padding: 5px;
-            border-bottom: 1px solid #ddd;
-            text-align: left;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        .text-center {
-            text-align: center;
-        }
-        .mt-5 {
-            margin-top: 10px;
-        }
-        .qr-code {
-            margin-top: 20px;
-            border: 1px solid #ccc;
-            padding: 10px;
-        }
-        .preserve-formatting {
-            white-space: pre-wrap;
-            font-size: 12px;
-            border: 1px solid #ccc;
-            padding: 10px;
-        }
-        @media print {
-            body {
-                margin: 0;
-                padding: px;
-                font-size: 12px;
-            }
-            .header {
-                margin-bottom: 30px;
-            }
-            .group-heading {
-                background-color: #02066F !important;
-                color: white !important;
-                -webkit-print-color-adjust: exact;
-            }
-            th, td {
-                padding: 5px !important;
-            }
-            .logo img {
-                width: 320px !important;
-            }
-            .contact-details { font-size:10px !important; }
-            .logo p {
-                font-size: 11px !important;
-                margin-left: 5px !important;
-            }
-            .qr-code {
-                border: 1px solid #000 !important;
-            }
-        }
-    </style>
-</head>
-<body>
-<div class="container">
-    <header class="header" role="banner" aria-label="Company header">
-        <table style="width:100%; border-collapse:collapse;">
-            <tr>
-                <td style="width:50%; vertical-align:top; padding-right:10px;">
-                    <div class="logo" aria-hidden="true">
-                        <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path('img/logo.png'))) }}" alt="Company logo">
-                    </div>
-                </td>
-                <td style="width:50%; vertical-align:top; text-align:right; padding-left:10px;">
-                    <div class="contact-item"><i class="fa-solid fa-map-location-dot"></i>P.O BOX 14657</div>
-                    <div class="contact-item"><i class="fa-solid fa-map-location-dot"></i>Nairobi 00100 GPO</div>
-                    <div class="contact-item"><i class="fa-solid fa-phone"></i>Mobile: +254 0722 270897</div>
-                    <div class="contact-item"><i class="fa-solid fa-envelope"></i>Email: info@emelyInsurance.co.ke</div>
-                </td>
-            </tr>
-        </table>
-    </header>
+@extends('layouts.pdf')
+
+@section('content')
+<style>
+    /* Local styles for debit note (kept compact because layouts.pdf already provides basic PDF styles) */
+    body { font-family: Arial, sans-serif; color: #02066F; }
+    .group-heading { background-color: #02066F; color: white; font-weight: bold; padding: 10px; margin-bottom: 5px; border: 1px solid #02066F; }
+    .form-group { margin-bottom: 5px; }
+    label { font-weight: bold; color: #02066F; display: inline-block; width: 150px; font-size: 13px; }
+    .value { display: inline-block; color: #02066F; font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 10px; }
+    th, td { padding: 5px; border-bottom: 1px solid #ddd; text-align: left; }
+    .preserve-formatting { white-space: pre-wrap; font-size: 12px; border: 1px solid #ccc; padding: 10px; }
+    .text-center { text-align: center; }
+    .total-row { margin-top: 30px; display:flex; justify-content:space-between; }
+</style>
 
     <h3 class="my-1 text-center" style="margin-top:6px;">Debit Note</h3>
 
-    <!-- Client Details Section -->
+     <!-- Client Details Section -->
     <div class="group-heading">Client Details</div>
     <table>
         <tbody>
@@ -378,3 +245,5 @@
 </div>
 </body>
 </html>
+
+@endsection

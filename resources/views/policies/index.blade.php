@@ -123,7 +123,7 @@
                             <th>Net Premium</th>
                             <th>Paid Amount</th>
                             <th>Balance</th>   
-                            <th>Actions</th>
+                            <th style="position: sticky; right: 0; background: #fff; z-index: 2; box-shadow: -2px 0 5px -2px #ccc;">Actions</th>
                         </tr>
                     </thead>
 
@@ -143,6 +143,11 @@
                             <td>
                                 {{-- Policy Number --}}
                                 {{ $policy->policy_no }}
+
+                                {{-- Cancelled badge --}}
+                                @if(method_exists($policy, 'isCancelled') && $policy->isCancelled())
+                                    <span class="badge bg-danger ms-2" title="Policy canceled" style="background-color:#dc3545;color:#fff;padding:.25em .4em;border-radius:.25rem;font-weight:700;font-size:75%;">Canceled</span>
+                                @endif
 
                                 {{-- Renewal badge: if this policy was created as a renewal (has a renewal record pointing to an original) --}}
                                 @php
@@ -180,21 +185,30 @@
                             <td>{{ number_format($policy->net_premium ?? 0, 2) }}</td>
                             <td>{{ number_format($policy->paid_amount ?? 0, 2) }}</td>
                             <td>{{ number_format($policy->balance ?? 0, 2) }}</td>
-                            <td class="actions-cell">
+                            <td class="actions-cell" style="position: sticky; right: 0; background: #fff; z-index: 2; box-shadow: -2px 0 5px -2px #ccc;">
                                 {{-- The 'View' button is always available --}}
-                                <a href="{{ route('policies.show', $policy->id) }}" class="btn btn-sm btn-info" title="View"><i class="fas fa-eye"></i></a>
+                                <a href="{{ route('policies.show', $policy->id) }}" class="btn btn-sm btn-info" title="View"><i class="fas fa-eye" style="font-size: 0.7em;"></i></a>
 
-                                {{-- EDIT and DELETE buttons are ONLY available if the policy has NOT been renewed --}}
-                                @if (!$policy->isRenewed())
-                                    <a href="{{ route('policies.edit', $policy->id) }}" class="btn btn-sm btn-warning" title="Edit"><i class="fas fa-edit"></i></a>
-                                    
+                                {{-- If the policy is cancelled or has already been renewed, only show the view button --}}
+                                @if ($policy->isCancelled() || $policy->isRenewed())
+                                    {{-- nothing else --}}
+                                @else
+                                    {{-- Endorsement button (nested resource) --}}
+                                    <a href="{{ route('policies.endorsements.create', $policy->id) }}" class="btn btn-sm btn-primary" title="Create Endorsement">
+                                        <i class="fas fa-plus" style="font-size: 0.7em;"></i>
+                                    </a>
+
+                                    {{-- Edit button --}}
+                                    <a href="{{ route('policies.edit', $policy->id) }}" class="btn btn-sm btn-warning" title="Edit"><i class="fas fa-edit" style="font-size: 0.7em;"></i></a>
+
+                                    {{-- Renew (icon only) --}}
+                                    <a href="{{ route('renewals.renew', $policy->id) }}" class="btn btn-sm btn-success" title="Renew Policy"><i class="fas fa-redo" style="font-size: 0.7em;"></i></a>
+
                                     <form action="{{ route('policies.destroy', $policy->id) }}" method="POST" style="display:inline-block;">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirmDelete()" title="Delete"><i class="fas fa-trash"></i></button>
+                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirmDelete()" title="Delete"><i class="fas fa-trash" style="font-size: 0.7em;"></i></button>
                                     </form>
-                                @else
-                                    <span class="badge bg-secondary" title="Policy has been renewed. Cannot modify.">Renewed</span>
                                 @endif
                             </td>
                              

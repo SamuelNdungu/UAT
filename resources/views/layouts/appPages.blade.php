@@ -93,6 +93,12 @@
                     <div class="sb-nav-link-icon"><i class="fas fa-home"></i></div>
                     Dashboard
                 </a>
+
+                <!-- AI Assistant (moved here for prominence) -->
+                <a class="nav-link" href="{{ route('ai.index') }}">
+                    <div class="sb-nav-link-icon"><i class="fas fa-robot"></i></div>
+                    AI Assistant
+                </a>
                 <a class="nav-link" href="{{ route('customers.index') }}">
                     <div class="sb-nav-link-icon"><i class="fas fa-users"></i></div>
                     Customers
@@ -125,6 +131,7 @@
                     <div class="sb-nav-link-icon"><i class="fas fa-file-invoice"></i></div>
                     Fees
                 </a>
+                                <!-- AI Assistant link moved to the top of the sidebar -->
                     <a class="nav-link" href="{{ route('settings.index') }}">
                         <div class="sb-nav-link-icon"><i class="fas fa-cog"></i></div>
                         Settings

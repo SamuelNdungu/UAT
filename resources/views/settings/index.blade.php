@@ -55,6 +55,17 @@
                 </div>
             </a>
         </div>
+        <div class="col-md-6 col-lg-4">
+            <a href="{{ route('settings.company-data.show') }}" class="settings-card card shadow-sm text-decoration-none">
+                <div class="card-body d-flex align-items-center">
+                    <span class="settings-card-icon bg-secondary text-white me-3"><i class="fas fa-building"></i></span>
+                    <div>
+                        <h5 class="mb-1">Company Data</h5>
+                        <p class="mb-0 text-muted">Manage the organization's contact and address details.</p>
+                    </div>
+                </div>
+            </a>
+        </div>
     </div>
  
 </div>

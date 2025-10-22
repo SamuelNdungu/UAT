@@ -11,8 +11,10 @@ use App\Models\PolicyTypes;
 use App\Models\PolicyType;
 use App\Models\Allocation;
 use App\Models\Claim;
+use App\Models\Document;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Intervention\Image\ImageManager;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -43,6 +45,7 @@ class ClaimController extends Controller
             ->select(
                 'claims.*',
                 'policies.policy_no as policy_number', 
+                'policies.status as policy_status',
                 'policy_types.type_name as policy_type_name',
                 'policies.reg_no',
                 'policies.sum_insured',
@@ -86,6 +89,8 @@ class ClaimController extends Controller
         
         // Fetch all policies to associate with a claim
         $policies = Policy::all();
+    // Filter out canceled policies using model helper
+    $policies = $policies->filter(function($p) { return ! $p->isCancelled(); });
 
         // Log the creation of a new claim
         Log::info('Creating a new claim with claim number: ' . $newClaimNumber);
@@ -121,6 +126,11 @@ class ClaimController extends Controller
      */
     public function store(Request $request)
     {
+        $policy = Policy::findOrFail($request->input('policy_id'));
+        if ($policy->isCancelled()) {
+            return redirect()->back()->with('error', 'Cannot register claims for a canceled policy.');
+        }
+
         $isAjax = $request->ajax() || $request->wantsJson();
 
         // Validate the form inputs (names used on the create page)
@@ -201,20 +211,46 @@ class ClaimController extends Controller
 
             // If attachments were uploaded but the DB did not have an attachments column,
             // move files into a claim-specific folder for easier manual/linking later.
-            if (!Schema::hasColumn($claimsTable, 'attachments') && !empty($attachmentsMeta)) {
-                foreach ($attachmentsMeta as $att) {
+            if (!empty($attachmentsMeta)) {
+                $finalDir = 'claims/claim_' . $claim->id;
+                foreach ($attachmentsMeta as $i => $att) {
                     $oldPath = $att['path'] ?? null;
                     if (! $oldPath) continue;
 
                     $filename = basename($oldPath);
-                    $newDir = 'claims/claim_' . $claim->id;
-                    $newPath = $newDir . '/' . $filename;
+                    $newPath = $finalDir . '/' . $filename;
 
                     try {
-                        // Ensure directory exists (disk 'public')
-                        // Storage::disk('public')->makeDirectory($newDir); // optional, move will create dirs
-                        if (Storage::disk('public')->exists($oldPath)) {
+                            if (Storage::disk('public')->exists($oldPath)) {
+                            // Ensure directory exists
+                            Storage::disk('public')->makeDirectory($finalDir);
                             Storage::disk('public')->move($oldPath, $newPath);
+                            // update attachments meta to final path
+                            $attachmentsMeta[$i]['path'] = $newPath;
+                            // If this is an image, generate a thumbnail
+                            $ext = strtolower(pathinfo($newPath, PATHINFO_EXTENSION));
+                            if (in_array($ext, ['jpg','jpeg','png','gif'])) {
+                                try {
+                                    $thumbDir = $finalDir . '/thumbs';
+                                    Storage::disk('public')->makeDirectory($thumbDir);
+                                    $fullPath = Storage::disk('public')->path($newPath);
+                                    $thumbPath = $thumbDir . '/' . basename($newPath);
+                                    $thumbFull = Storage::disk('public')->path($thumbPath);
+                                    $manager = new ImageManager('gd');
+                                    $img = $manager->make($fullPath);
+                                    if (method_exists($img, 'orientate')) {
+                                        $img->orientate();
+                                    }
+                                    $img->resize(300, null, function ($constraint) {
+                                        $constraint->aspectRatio();
+                                        $constraint->upsize();
+                                    });
+                                    $img->save($thumbFull, 80);
+                                    $attachmentsMeta[$i]['thumb_path'] = $thumbPath;
+                                } catch (\Exception $e) {
+                                    Log::warning('Failed to create thumbnail for ' . $newPath . ': ' . $e->getMessage());
+                                }
+                            }
                             Log::info("ClaimController@store: moved file {$oldPath} -> {$newPath} for claim {$claim->id}");
                         } else {
                             Log::warning("ClaimController@store: expected file missing when moving: {$oldPath}");
@@ -224,8 +260,29 @@ class ClaimController extends Controller
                     }
                 }
 
-                // Log guidance so admin/dev can later link attachments into DB or separate table
-                Log::info("ClaimController@store: uploaded files for claim {$claim->id} are stored under storage/app/public/claims/claim_{$claim->id}/");
+                // Persist attachments metadata if column exists
+                if (Schema::hasColumn($claimsTable, 'attachments')) {
+                    $claim->attachments = $attachmentsMeta;
+                    $claim->saveQuietly();
+                }
+
+                // Persist Document rows for new uploads
+                try {
+                    foreach ($attachmentsMeta as $att) {
+                        Document::create([
+                            'claim_id' => $claim->id,
+                            'path' => $att['path'] ?? null,
+                            'original_name' => $att['original_name'] ?? basename($att['path'] ?? ''),
+                            'mime' => $att['mime'] ?? null,
+                            'size' => $att['size'] ?? null,
+                            'uploaded_by' => Auth::id(),
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('ClaimController@store: failed to persist Document rows: ' . $e->getMessage());
+                }
+
+                Log::info("ClaimController@store: uploaded files for claim {$claim->id} are stored under storage/app/public/{$finalDir}/");
             }
 
             DB::commit();
@@ -254,6 +311,7 @@ class ClaimController extends Controller
 
     public function update(Request $request, Claim $claim)
     {
+        $claimsTable = (new Claim())->getTable();
         // Define validation rules for updating the claim
         $validated = $request->validate([
             'fileno' => 'nullable|string|max:255',
@@ -295,8 +353,6 @@ class ClaimController extends Controller
             // Ensure attachments is an array
             $existingAttachments = $claim->attachments ?? [];
             if (is_string($existingAttachments)) {
-                $decoded = json_decode($existingAttachments, true);
-                $existingAttachments = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : [];
             } elseif (!is_array($existingAttachments)) {
                 $existingAttachments = [];
             }
@@ -342,11 +398,16 @@ class ClaimController extends Controller
                     }
                 }
 
-                // Assign remaining attachments back to the claim
-                $claim->attachments = $remaining;
-                // Persist the change now so further update logic sees the updated attachments
-                $claim->saveQuietly();
-                Log::info('ClaimController@update: removed attachments for claim ' . $claim->id . '; remaining count: ' . count($remaining));
+                // Assign remaining attachments back to the claim only if the DB column exists
+                if (Schema::hasColumn($claimsTable, 'attachments')) {
+                    $claim->attachments = $remaining;
+                    // Persist the change now so further update logic sees the updated attachments
+                    $claim->saveQuietly();
+                    Log::info('ClaimController@update: removed attachments for claim ' . $claim->id . '; remaining count: ' . count($remaining));
+                } else {
+                    // No attachments column: just log and ensure files were deleted from storage
+                    Log::info('ClaimController@update: attachments column missing on claims table; files deleted from storage for claim ' . $claim->id . '; remaining count: ' . count($remaining));
+                }
             }
         } catch (\Exception $e) {
             // Log but do not abort update flow; inform admin in logs
@@ -372,7 +433,34 @@ class ClaimController extends Controller
             foreach ($request->file('attachments') as $file) {
                 if ($file && $file->isValid()) {
                     try {
-                        $path = $file->store('claims', 'public');
+                        // store in a claim-specific folder
+                        $finalDir = 'claims/claim_' . $claim->id;
+                        Storage::disk('public')->makeDirectory($finalDir);
+                        $path = $file->storeAs($finalDir, $file->getClientOriginalName(), 'public');
+                        // generate thumbnail for images
+                        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+                        if (in_array($ext, ['jpg','jpeg','png','gif'])) {
+                            try {
+                                $thumbDir = $finalDir . '/thumbs';
+                                Storage::disk('public')->makeDirectory($thumbDir);
+                                $fullPath = Storage::disk('public')->path($path);
+                                $thumbPath = $thumbDir . '/' . basename($path);
+                                $thumbFull = Storage::disk('public')->path($thumbPath);
+                                $manager = new ImageManager('gd');
+                                $img = $manager->make($fullPath);
+                                if (method_exists($img, 'orientate')) {
+                                    $img->orientate();
+                                }
+                                $img->resize(300, null, function ($constraint) {
+                                    $constraint->aspectRatio();
+                                    $constraint->upsize();
+                                });
+                                $img->save($thumbFull, 80);
+                                $meta['thumb_path'] = $thumbPath;
+                            } catch (\Exception $e) {
+                                Log::warning('ClaimController@update: failed to create thumbnail: ' . $e->getMessage());
+                            }
+                        }
                         $meta = [
                             'original_name' => $file->getClientOriginalName(),
                             'path' => $path,
@@ -387,9 +475,13 @@ class ClaimController extends Controller
                 }
             }
 
-            // Save updated attachments
-            $claim->attachments = $existingAttachments;
-            $claim->saveQuietly();
+            // Save updated attachments only if the DB column exists
+            if (Schema::hasColumn($claimsTable, 'attachments')) {
+                $claim->attachments = $existingAttachments;
+                $claim->saveQuietly();
+            } else {
+                Log::warning('ClaimController@update: attachments column missing on claims table; stored files for claim ' . $claim->id . ' were not saved to DB.');
+            }
         }
 
         // If there are events provided, update or create them
@@ -425,6 +517,7 @@ class ClaimController extends Controller
                 'policies.customer_code',
                 'policies.fileno',
                 'policies.customer_name',
+                'policies.status',
                 'policy_types.type_name as policy_type', // Adjust this line based on your column name
                 'policies.reg_no',
                 'policies.make',
@@ -471,5 +564,72 @@ class ClaimController extends Controller
         Log::info('Found ' . $policies->count() . ' policies matching the search term.');
 
         return response()->json($policies);
+    }
+
+    /**
+     * Securely stream or download an attachment for a claim.
+     * idx may be a numeric index into the attachments array or the string 'upload_file' for the legacy single-file column.
+     */
+    public function attachment(Claim $claim, $idx)
+    {
+        $serveThumb = request()->query('thumb') == '1';
+        // Authorize: simple auth middleware already applied by routes group; additional checks can be added here
+        // Resolve attachment path
+        $path = null;
+        $name = null;
+
+        // If attachments (array) exist, try numeric index
+        $attachments = $claim->attachments ?? null;
+        if (is_string($attachments)) {
+            $decoded = @json_decode($attachments, true);
+            $attachments = is_array($decoded) ? $decoded : null;
+        }
+
+        if (is_array($attachments) && is_numeric($idx)) {
+            $i = (int)$idx;
+            if (isset($attachments[$i]['path'])) {
+                if ($serveThumb && !empty($attachments[$i]['thumb_path'])) {
+                    $path = $attachments[$i]['thumb_path'];
+                } else {
+                    $path = $attachments[$i]['path'];
+                }
+                $name = $attachments[$i]['original_name'] ?? basename($path);
+            }
+        }
+
+        // Support legacy single upload_file column
+        if (!$path && $idx === 'upload_file' && $claim->upload_file) {
+            $path = $claim->upload_file;
+            $name = basename($path);
+        }
+
+        // If idx is a filename (string) try to find first matching path
+        if (!$path && is_string($idx) && !is_numeric($idx) && is_array($attachments)) {
+            foreach ($attachments as $att) {
+                if ((isset($att['original_name']) && $att['original_name'] === $idx) || (isset($att['path']) && basename($att['path']) === $idx)) {
+                    $path = $att['path'] ?? null;
+                    $name = $att['original_name'] ?? basename($path);
+                    break;
+                }
+            }
+        }
+
+        if (!$path) {
+            abort(404, 'Attachment not found');
+        }
+
+        // Ensure file exists on the public disk
+        if (!Storage::disk('public')->exists($path)) {
+            abort(404, 'File not found on disk');
+        }
+
+        $fullPath = Storage::disk('public')->path($path);
+        $mime = Storage::disk('public')->mimeType($path) ?? 'application/octet-stream';
+
+        // Stream file to browser with proper headers
+        return response()->file($fullPath, [
+            'Content-Type' => $mime,
+            'Content-Disposition' => 'inline; filename="' . ($name ?? basename($fullPath)) . '"'
+        ]);
     }
 }

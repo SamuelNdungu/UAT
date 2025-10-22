@@ -41,102 +41,83 @@
         </div>
         <div class="card-body ">
             <!-- Policy Details Section -->
-            <div class="group-heading">Policy Details</div>
-            <div class="row mt-3">
-                <div class="col-md-2">
-                    <div class="mb-3">
-                        <label class="form-label">Claim No</label>
-                        <p class="form-control-plaintext">{{ $claim->claim_number }}</p>
+            <div class="mb-4">
+                <h5 class="text-primary mb-3">Policy Details</h5>
+                <div class="row g-3">
+                    <div class="col-12 col-md-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start">
+                                    <div class="me-3 text-primary fs-3">
+                                        <i class="fas fa-id-badge"></i>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted">Claim No</small>
+                                        <div class="fw-bold">{{ $claim->claim_number }}</div>
+                                        <small class="text-muted">Cust: {{ $claim->customer_code }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
 
-                <div class="col-md-2">
-                    <div class="mb-3">
-                        <label class="form-label">Cust Code</label>
-                        <p class="form-control-plaintext">{{ $claim->customer_code }}</p>
+                    <div class="col-12 col-md-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body">
+                                <small class="text-muted">Customer</small>
+                                <div class="fw-bold">{{ $claim->policy->customer_name }}</div>
+                                <div class="text-muted small mt-1">Policy Type: {{ $claim->policy->policyType->type_name ?? 'N/A' }}</div>
+                            </div>
+                        </div>
                     </div>
-                </div>
 
-                <div class="col-md-4">
-                    <div class="mb-3">
-                        <label class="form-label">Customer Name</label>
-                        <p class="form-control-plaintext">{{ $claim->policy->customer_name }}</p>
-                    </div>
-                </div>
-
-                <div class="col-md-4">
-                    <div class="mb-3">
-                        <label class="form-label">Policy Type</label>
-                        <p class="form-control-plaintext">
-                            {{ $claim->policy->policyType->type_name ?? 'N/A' }}
-                        </p>
-                    </div>
-                </div>
-
-                <div class="col-md-2">
-                    <div class="mb-3">
-                        <label class="form-label">File No</label>
-                        <p class="form-control-plaintext">{{ $claim->fileno }}</p>
-                    </div>
-                </div>
-
-                <div class="col-md-2">
-                    <div class="mb-3">
-                        <label class="form-label">Reg No</label>
-                        <p class="form-control-plaintext">{{ $claim->policy->reg_no }}</p>
+                    <div class="col-12 col-md-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body">
+                                <small class="text-muted">Policy / Vehicle</small>
+                                <div class="fw-bold">{{ $claim->policy->policy_no ?? 'N/A' }} &middot; {{ $claim->policy->reg_no ?? 'N/A' }}</div>
+                                <div class="text-muted small mt-1">Sum Insured: {{ number_format($claim->policy->sum_insured ?? 0, 2) }}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Claim Details Section -->
-            <div class="group-heading">Claims Details</div>
-            <div class="row mt-3">
-                <div class="col-md-3">
-                    <div class="mb-3">
-                        <label class="form-label ">Reported Date</label>
-                        <p class="form-control-plaintext">{{ \Illuminate\Support\Carbon::parse($claim->reported_date)->format('Y-m-d') }}</p>
+            <div class="mb-4">
+                <h5 class="text-primary mb-3">Claim Details</h5>
+                <div class="row g-3">
+                    <div class="col-12 col-md-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body">
+                                <small class="text-muted">Reported</small>
+                                <div class="fw-bold">{{ \Illuminate\Support\Carbon::parse($claim->reported_date)->format('d M Y') }}</div>
+                                <small class="text-muted">Loss</small>
+                                <div>{{ $claim->type_of_loss }} &middot; {{ \Illuminate\Support\Carbon::parse($claim->loss_date)->format('d M Y') }}</div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="mb-3">
-                        <label class="form-label ">Type of Loss</label>
-                        <p class="form-control-plaintext">{{ $claim->type_of_loss }}</p>
+
+                    <div class="col-12 col-md-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body">
+                                <small class="text-muted">Claimant</small>
+                                <div class="fw-bold">{{ $claim->claimant_name }}</div>
+                                <small class="text-muted">Follow-up</small>
+                                <div>{{ $claim->followup_date ? \Illuminate\Support\Carbon::parse($claim->followup_date)->format('d M Y') : 'N/A' }}</div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="mb-3">
-                        <label class="form-label ">Loss Date</label>
-                        <p class="form-control-plaintext">{{ \Illuminate\Support\Carbon::parse($claim->loss_date)->format('Y-m-d') }}</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="mb-3">
-                        <label class="form-label">Follow-up Date</label>
-                        <p class="form-control-plaintext">{{ $claim->followup_date ? \Illuminate\Support\Carbon::parse($claim->followup_date)->format('Y-m-d') : 'N/A' }}</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="mb-3">
-                        <label class="form-label ">Claimant Name</label>
-                        <p class="form-control-plaintext">{{ $claim->claimant_name }}</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="mb-3">
-                        <label class="form-label ">Amount Claimed</label>
-                        <p class="form-control-plaintext">{{ number_format($claim->amount_claimed, 2) }}</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="mb-3">
-                        <label class="form-label">Amount Paid</label>
-                        <p class="form-control-plaintext">{{ number_format($claim->amount_paid, 2) }}</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="mb-3">
-                        <label class="form-label ">Status</label>
-                        <p class="form-control-plaintext">{{ $claim->status }}</p>
+
+                    <div class="col-12 col-md-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body">
+                                <small class="text-muted">Financials</small>
+                                <div class="fw-bold">Claimed: {{ number_format($claim->amount_claimed, 2) }}</div>
+                                <div class="text-muted">Paid: {{ $claim->amount_paid ? number_format($claim->amount_paid, 2) : 'N/A' }}</div>
+                                <div class="mt-2"><span class="badge bg-{{ $claim->status == 'Closed' ? 'success' : ($claim->status == 'Open' ? 'warning' : 'secondary') }}">{{ $claim->status }}</span></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -146,16 +127,24 @@
                 <p class="form-control-plaintext">{{ $claim->loss_details }}</p>
             </div>
             
-           <!-- Uploaded Files Section -->
+            <!-- Uploaded Files Section (legacy single file) -->
             <div class="group-heading">Uploaded Files</div>
-            <div class="row"> 
-                                
-                                @if($claim->upload_file)
-                                    <a href="{{ asset('storage/' . $claim->upload_file) }}" target="_blank">View Document</a>
-                                @else
-                                    N/A
-                                @endif
- 
+            <div class="row">
+                @if($claim->documents && $claim->documents->count() > 0)
+                    @foreach($claim->documents as $doc)
+                        @php
+                            $docUrl = route('claims.attachment', ['claim' => $claim->id, 'idx' => basename($doc->path)]);
+                        @endphp
+                        <div class="me-3 mb-2">
+                            <a href="{{ $docUrl }}" target="_blank">{{ $doc->original_name ?? basename($doc->path) }}</a>
+                        </div>
+                    @endforeach
+                @elseif($claim->upload_file)
+                    @php $legacyUrl = route('claims.attachment', ['claim' => $claim->id, 'idx' => 'upload_file']); @endphp
+                    <a href="{{ $legacyUrl }}" target="_blank">View Document</a>
+                @else
+                    N/A
+                @endif
             </div>
 
  
@@ -182,34 +171,68 @@
                 </table>
             </div>
 
-            {{-- Attachments preview (if any) --}}
-            @if(!empty($claim->attachments) && is_array($claim->attachments))
-                <div class="group-heading bg-primary text-white p-2 mb-2">Attachments</div>
+            {{-- Attachments / Documents preview (if any) --}}
+            @if($claim->documents && $claim->documents->count() > 0)
+                <div class="group-heading bg-primary text-white p-2 mb-2">Documents</div>
                 <div class="mb-4 d-flex flex-wrap gap-2">
-                    @foreach($claim->attachments as $att)
+                    @foreach($claim->documents as $doc)
                         @php
-                            $path = $att['path'] ?? $att['file'] ?? null;
-                            $name = $att['original_name'] ?? ($att['name'] ?? basename($path ?? ''));
-                            $url = $path ? asset('storage/' . $path) : null;
+                            $path = $doc->path;
+                            $name = $doc->original_name ?? basename($path ?? '');
+                            $viewUrl = $path ? route('claims.attachment', ['claim' => $claim->id, 'idx' => basename($path)]) : null;
                             $ext = $path ? strtolower(pathinfo($path, PATHINFO_EXTENSION)) : null;
                         @endphp
 
                         <div class="card text-center" style="width:120px;">
-                            @if($url && in_array($ext, ['jpg','jpeg','png','gif']))
-                                <a href="{{ $url }}" target="_blank" class="d-block" style="height:80px; overflow:hidden;">
-                                    <img src="{{ $url }}" alt="{{ $name }}" style="width:100%; height:80px; object-fit:cover;">
+                            @if($viewUrl && in_array($ext, ['jpg','jpeg','png','gif']))
+                                @php $thumbUrl = $viewUrl . '?thumb=1'; @endphp
+                                <a href="{{ $viewUrl }}" target="_blank" class="d-block" style="height:80px; overflow:hidden;">
+                                    <img src="{{ $thumbUrl }}" alt="{{ $name }}" style="width:100%; height:80px; object-fit:cover;">
                                 </a>
-                            @elseif($url && $ext === 'pdf')
-                                <a href="{{ $url }}" target="_blank" class="d-flex align-items-center justify-content-center" style="height:80px;">
+                            @elseif($viewUrl && $ext === 'pdf')
+                                <a href="{{ $viewUrl }}" target="_blank" class="d-flex align-items-center justify-content-center" style="height:80px;">
                                     <i class="fas fa-file-pdf fa-2x text-danger"></i>
                                 </a>
                             @else
-                                <a href="{{ $url ?? '#' }}" target="_blank" class="d-flex align-items-center justify-content-center" style="height:80px;">
+                                <a href="{{ $viewUrl ?? '#' }}" target="_blank" class="d-flex align-items-center justify-content-center" style="height:80px;">
                                     <i class="fas fa-file fa-2x"></i>
                                 </a>
                             @endif
                             <div class="card-body p-2">
-                                <a href="{{ $url ?? '#' }}" download class="small text-truncate d-block">{{ \Illuminate\Support\Str::limit($name, 24) }}</a>
+                                <a href="{{ $viewUrl ?? '#' }}" download class="small text-truncate d-block">{{ \Illuminate\Support\Str::limit($name, 24) }}</a>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @elseif(!empty($claim->attachments) && is_array($claim->attachments))
+                {{-- Fallback to legacy attachments array if documents not present --}}
+                <div class="group-heading bg-primary text-white p-2 mb-2">Attachments</div>
+                <div class="mb-4 d-flex flex-wrap gap-2">
+                    @foreach($claim->attachments as $idx => $att)
+                        @php
+                            $path = $att['path'] ?? $att['file'] ?? null;
+                            $name = $att['original_name'] ?? ($att['name'] ?? basename($path ?? ''));
+                            $viewUrl = $path ? route('claims.attachment', ['claim' => $claim->id, 'idx' => $idx]) : null;
+                            $ext = $path ? strtolower(pathinfo($path, PATHINFO_EXTENSION)) : null;
+                        @endphp
+
+                        <div class="card text-center" style="width:120px;">
+                            @if($viewUrl && in_array($ext, ['jpg','jpeg','png','gif']))
+                                @php $thumbUrl = $viewUrl . '?thumb=1'; @endphp
+                                <a href="{{ $viewUrl }}" target="_blank" class="d-block" style="height:80px; overflow:hidden;">
+                                    <img src="{{ $thumbUrl }}" alt="{{ $name }}" style="width:100%; height:80px; object-fit:cover;">
+                                </a>
+                            @elseif($viewUrl && $ext === 'pdf')
+                                <a href="{{ $viewUrl }}" target="_blank" class="d-flex align-items-center justify-content-center" style="height:80px;">
+                                    <i class="fas fa-file-pdf fa-2x text-danger"></i>
+                                </a>
+                            @else
+                                <a href="{{ $viewUrl ?? '#' }}" target="_blank" class="d-flex align-items-center justify-content-center" style="height:80px;">
+                                    <i class="fas fa-file fa-2x"></i>
+                                </a>
+                            @endif
+                            <div class="card-body p-2">
+                                <a href="{{ $viewUrl ?? '#' }}" download class="small text-truncate d-block">{{ \Illuminate\Support\Str::limit($name, 24) }}</a>
                             </div>
                         </div>
                     @endforeach
@@ -221,8 +244,12 @@
                 $actionButtons = [
                     ['url' => route('claims.index'), 'label' => 'Go Back', 'icon' => 'fas fa-arrow-left', 'variant' => 'primary', 'attrs' => ['title' => 'Back to list', 'aria-label' => 'Back to list']],
                     ['url' => route('claims.edit', $claim->id), 'label' => 'Edit', 'icon' => 'fas fa-edit', 'variant' => 'warning', 'attrs' => ['title' => 'Edit claim', 'aria-label' => 'Edit claim']],
-                    ['url' => route('claims.print', $claim->id), 'label' => 'Print', 'icon' => 'fas fa-print', 'variant' => 'success', 'target' => '_blank', 'attrs' => ['title' => 'Print claim', 'aria-label' => 'Print claim']],
                 ];
+
+                // Add Print button only if the named route exists
+                if (\Illuminate\Support\Facades\Route::has('claims.print')) {
+                    $actionButtons[] = ['url' => route('claims.print', $claim->id), 'label' => 'Print', 'icon' => 'fas fa-print', 'variant' => 'success', 'target' => '_blank', 'attrs' => ['title' => 'Print claim', 'aria-label' => 'Print claim']];
+                }
             @endphp
 
             <div class="row mb-3">

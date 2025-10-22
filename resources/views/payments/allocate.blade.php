@@ -25,6 +25,12 @@
         </p>
     </div>
 
+    <!-- UX banner: explain disabled inputs for canceled policies -->
+    <div class="alert alert-info small">
+        <i class="fas fa-info-circle"></i>
+        Some policies are marked <strong>canceled</strong> and are not eligible for allocation. These rows are disabled to prevent accidental allocations. If you need to allocate to a canceled policy for a valid reason, contact an administrator.
+    </div>
+
     <form action="{{ route('payments.storeAllocation', $payment->id) }}" method="POST">
         @csrf
 
@@ -68,20 +74,26 @@
         // Format for display
         $displayBalanceFormatted = number_format($displayBalance, 2);
     @endphp
-    <tr style="white-space: nowrap;">
+    @php $isCanceled = $policy->isCancelled(); @endphp
+    <tr style="white-space: nowrap;" class="{{ $isCanceled ? 'table-danger' : '' }}">
         <td>{{ $policy->fileno }}</td>
         <td>{{ $policy->policy_type_name }}</td>
         <td>{{ $policy->reg_no }}</td> 
         <td>{{ $policy->insurer_name }}</td>
         <td>{{ number_format($policy->gross_premium, 2) }}</td>
         <td>
+            <div style="display:flex; gap:8px; align-items:center;">
             <input type="number" step="0.01" 
                 name="allocations[{{ $policy->id }}][allocation_amount]" 
                 id="allocation_amount_{{ $policy->id }}" 
                 class="form-control allocation-input" 
                 value="{{ number_format($initialAllocation, 2, '.', '') }}"
                 max="{{ $maxAllocation }}"
-                {{ ($remainingPremium == 0) ? 'readonly' : '' }}>
+                {{ ($remainingPremium == 0 || $isCanceled) ? 'readonly' : '' }}>
+            @if($isCanceled)
+                <span class="badge bg-danger ms-2" title="Cannot allocate to canceled policy">Canceled</span>
+            @endif
+            </div>
             <input type="hidden" name="allocations[{{ $policy->id }}][policy_id]" value="{{ $policy->id }}">
         </td>
         <td>

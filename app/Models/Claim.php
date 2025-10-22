@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\ClaimEvent;
 
 class Claim extends Model
 {
@@ -52,6 +53,22 @@ class Claim extends Model
     public function customer()
     {
         return $this->belongsTo(\App\Models\Customer::class, 'customer_id');
+    }
+
+    /**
+     * Events related to this claim (notes, timeline entries, etc.)
+     */
+    public function events()
+    {
+        return $this->hasMany(ClaimEvent::class, 'claim_id');
+    }
+
+    /**
+     * Documents (attachments) for this claim.
+     */
+    public function documents()
+    {
+        return $this->hasMany(\App\Models\Document::class, 'claim_id');
     }
 
     // Human-readable status list

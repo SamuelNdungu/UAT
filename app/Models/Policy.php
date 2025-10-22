@@ -62,7 +62,12 @@ class Policy extends Model
         'risk_details',
         'renewal_count',
          'paid_amount', 
-        'balance', 
+        'balance',
+        // Add cancellation fields
+        'cancellation_reason',
+        'cancellation_date',
+        'status',
+        'is_canceled',
     ];
 
     // Specify the attributes that should be cast to native types
@@ -94,6 +99,7 @@ class Policy extends Model
         'aa_charges' => 'float',
         'paid_amount'=> 'float', 
         'balance'=> 'float',  
+        'is_canceled' => 'boolean',
     ];
 
     // Relationships
@@ -114,6 +120,12 @@ class Policy extends Model
     public function policyType()
     {
         return $this->belongsTo(PolicyType::class, 'policy_type_id');
+    }
+
+    // A policy can have many endorsements associated with it.
+    public function endorsements()
+    {
+        return $this->hasMany(Endorsement::class);
     }
 
     // A policy can have many claims associated with it.
@@ -177,5 +189,78 @@ class Policy extends Model
 
         // Use saveQuietly to avoid firing events if not needed
         $this->saveQuietly();
+    }
+
+    /**
+     * Get the policy's current financial totals, including endorsements.
+     */
+    public function getCurrentFinancialsAttribute()
+    {
+        $financials = [
+            'sum_insured' => $this->sum_insured,
+            'premium' => $this->premium,
+            'commission' => $this->commission,
+            'wht' => $this->wht,
+            's_duty' => $this->s_duty,
+            't_levy' => $this->t_levy,
+            'pcf_levy' => $this->pcf_levy,
+            'policy_charge' => $this->policy_charge,
+            'aa_charges' => $this->aa_charges,
+            'other_charges' => $this->other_charges,
+            'gross_premium' => $this->gross_premium,
+            'net_premium' => $this->net_premium,
+            'excess' => $this->excess,
+            'courtesy_car' => $this->courtesy_car,
+            'ppl' => $this->ppl,
+            'road_rescue' => $this->road_rescue,
+        ];
+
+        foreach ($this->endorsements as $endorsement) {
+            foreach ($financials as $key => $value) {
+                $deltaKey = 'delta_' . $key;
+                if (isset($endorsement->$deltaKey)) {
+                    $financials[$key] += $endorsement->$deltaKey;
+                }
+            }
+        }
+
+        return $financials;
+    }
+
+    /**
+     * Check whether the policy is cancelled/canceled.
+     *
+     * This method tolerates different spellings and also honours the
+     * boolean `is_canceled` column when present.
+     *
+     * @return bool
+     */
+    public function isCancelled(): bool
+    {
+        // If there is an explicit boolean column, prefer it
+        if (isset($this->is_canceled) && $this->is_canceled) {
+            return true;
+        }
+
+        $status = strtolower(trim((string) ($this->status ?? '')));
+
+        return in_array($status, ['canceled', 'cancelled', 'cancel']);
+    }
+
+    /**
+     * Return a normalized status string useful for comparisons or JSON output.
+     * Normalizes various spellings to a single canonical value.
+     *
+     * @return string
+     */
+    public function getNormalizedStatusAttribute(): string
+    {
+        $status = strtolower(trim((string) ($this->status ?? '')));
+
+        if (in_array($status, ['canceled', 'cancelled', 'cancel'])) {
+            return 'canceled';
+        }
+
+        return $status;
     }
 }

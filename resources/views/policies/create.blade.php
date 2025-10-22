@@ -147,7 +147,7 @@
                 <input type="text" id="policy_no" name="policy_no" class="form-control" value="{{ old('policy_no') }}">
             </div>
 
-            <div class="form-group">
+            <div class="col-md-3  form-group">
     <label for="start_date">Policy Start Date <span class="text-danger">*</span></label>
     <input type="date" id="start_date" name="start_date" class="form-control" required
            {{-- Dynamically sets the minimum date allowed to Jan 1st of the current year --}}

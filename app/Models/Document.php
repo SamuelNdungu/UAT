@@ -10,16 +10,17 @@ class Document extends Model
     use HasFactory;
 
     protected $fillable = [
-        'customer_id', 
-        'name', 
-        'path', 
-        'document_type'
+        'claim_id', 'path', 'original_name', 'mime', 'size', 'uploaded_by', 'tag', 'notes'
     ];
 
-    // Relationships
-    public function customer()
+    public function claim()
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(Claim::class, 'claim_id');
+    }
+
+    public function uploader()
+    {
+        return $this->belongsTo(User::class, 'uploaded_by');
     }
 }
 

@@ -81,6 +81,22 @@ class CustomerStatementController extends Controller
                 'debit' => $debitAmount,
                 'credit' => '0.00',
             ]);
+
+            // Add Endorsements for this policy
+            if (method_exists($p, 'endorsements')) {
+                foreach ($p->endorsements as $endorsement) {
+                    $endorsementDate = $endorsement->effective_date ? Carbon::parse($endorsement->effective_date) : ($endorsement->created_at ?? Carbon::now());
+                    $amount = number_format((float)($endorsement->premium_impact ?? 0), self::PRECISION, '.', '');
+                    $transactions->push((object)[
+                        'date' => $endorsementDate,
+                        'type' => 'Endorsement',
+                        'description' => 'Endorsement - ' . ($endorsement->endorsement_type ?? '') . ($endorsement->description ? (': ' . $endorsement->description) : ''),
+                        'policy_no' => $p->policy_no,
+                        'debit' => $amount > 0 ? $amount : '0.00',
+                        'credit' => $amount < 0 ? abs($amount) : '0.00',
+                    ]);
+                }
+            }
         }
 
         foreach ($payments as $pay) {

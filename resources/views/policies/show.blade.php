@@ -2,6 +2,7 @@
 
 @section('content')
 <div class="container py-4">
+
     <style>
         /* Modern Design Palette & Utility Classes */
         :root {
@@ -154,12 +155,18 @@
     </style>
 
     <h2 class="mb-5 text-center text-dark">Policy Details: {{ $policy->fileno }}</h2>
-
+    @if($policy->isCancelled())
+        <div class="alert alert-warning mb-4">This policy is <strong>canceled</strong>. All actions are disabled.</div>
+    @endif
             <div style="justify-self:end; display:flex; align-items:center; gap:0.5rem;">
                 @if(isset($policy->status))
-                    <span class="badge-pill-modern {{ $policy->status ? 'badge-active' : 'badge-inactive' }}">
-                        {{ $policy->status ? 'Active' : 'Expired' }}
-                    </span>
+                    @if($policy->isCancelled())
+                        <span class="badge-pill-modern badge-inactive" style="background-color:#dc3545; color:#fff;">Canceled</span>
+                    @elseif($policy->status)
+                        <span class="badge-pill-modern badge-active">Active</span>
+                    @else
+                        <span class="badge-pill-modern badge-inactive">Expired</span>
+                    @endif
                 @endif
             </div>
     {{-- REPLACED: COMBINED POLICY & CLIENT SUMMARY -> POLICY SNAPSHOT --}}
@@ -264,6 +271,36 @@
             </div>
 
             <div class="row">
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card">
+                        <div class="mini-card-label">Sum Insured</div>
+                        <div class="mini-card-value">{{ number_format($policy->sum_insured ?? 0, 2) }}</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card">
+                        <div class="mini-card-label">Rate (%)</div>
+                        <div class="mini-card-value">{{ number_format($policy->rate ?? 0, 2) }}</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card">
+                        <div class="mini-card-label">Commission Rate (%)</div>
+                        <div class="mini-card-value">{{ number_format($policy->c_rate ?? 0, 2) }}</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card">
+                        <div class="mini-card-label">WHT</div>
+                        <div class="mini-card-value">{{ number_format($policy->wht ?? 0, 2) }}</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card">
+                        <div class="mini-card-label">AA Charges</div>
+                        <div class="mini-card-value">{{ number_format($policy->aa_charges ?? 0, 2) }}</div>
+                    </div>
+                </div>
                 {{-- Metrics in smaller, distinct mini-cards (4 columns on md, 2 on sm) --}}
                 <div class="col-md-3 col-sm-6">
                     <div class="mini-card">
@@ -353,6 +390,18 @@
                         <div class="mini-card-value">{{ number_format($policy->road_rescue ?? 0, 2) }}</div>
                     </div>
                 </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card accent-info">
+                        <div class="mini-card-label">Paid Amount</div>
+                        <div class="mini-card-value">{{ number_format($policy->paid_amount ?? 0, 2) }}</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="mini-card accent-danger">
+                        <div class="mini-card-label">Balance</div>
+                        <div class="mini-card-value">{{ number_format($policy->balance ?? 0, 2) }}</div>
+                    </div>
+                </div>
              </div>
         </div>
     </div>
@@ -406,23 +455,85 @@
     {{-- Actions (Full-width, right-aligned) --}}
     <div class="d-flex justify-content-end gap-3 mb-5">
         @php
-            $actionButtons = [
-                ['url' => route('policies.index'), 'label' => 'Go Back', 'icon' => 'fas fa-arrow-left', 'variant' => 'outline-primary', 'attrs' => ['title' => 'Back to list', 'aria-label' => 'Back to list']],
-                ['url' => route('policies.edit', $policy->id), 'label' => 'Edit Policy', 'icon' => 'fas fa-edit', 'variant' => 'warning', 'attrs' => ['title' => 'Edit policy', 'aria-label' => 'Edit policy']],
-                ['url' => route('policies.printDebitNote', $policy->id), 'label' => 'Print Debit Note', 'icon' => 'fas fa-file-invoice', 'variant' => 'success', 'target' => '_blank', 'attrs' => ['title' => 'Print debit note', 'aria-label' => 'Print debit note']],
-                ['url' => route('renewals.renew', $policy->id), 'label' => 'Renew', 'icon' => 'fas fa-sync-alt', 'variant' => 'outline-warning', 'attrs' => ['title' => 'Create renewal', 'aria-label' => 'Create renewal']],
-                ['url' => route('policies.history', $policy->id), 'label' => 'View History', 'icon' => 'fas fa-history', 'variant' => 'secondary', 'attrs' => ['title' => 'View renewal history', 'aria-label' => 'View renewal history']],
-            ];
+            $isReadOnly = $policy->isCancelled() || $policy->isRenewed();
         @endphp
-        
-        @foreach($actionButtons as $button)
-            <a href="{{ $button['url'] }}" 
-               class="btn btn-{{ $button['variant'] }} d-flex align-items-center" 
-               @foreach($button['attrs'] as $key => $val) {{ $key }}="{{ $val }}" @endforeach
-               @if(isset($button['target'])) target="{{ $button['target'] }}" @endif>
-                <i class="{{ $button['icon'] }} me-2"></i> {{ $button['label'] }}
+
+        <a href="{{ route('policies.index') }}" class="btn btn-outline-primary d-flex align-items-center" title="Back to list" aria-label="Back to list">
+            <i class="fas fa-arrow-left me-2"></i> Go Back
+        </a>
+
+        @if(! $isReadOnly)
+            {{-- Endorsement create (nested resource) --}}
+            <a href="{{ route('policies.endorsements.create', $policy->id) }}" class="btn btn-primary d-flex align-items-center" title="Create Endorsement" aria-label="Create Endorsement">
+                <i class="fas fa-plus me-2"></i> Endorse
             </a>
-        @endforeach
+
+            {{-- Edit --}}
+            <a href="{{ route('policies.edit', $policy->id) }}" class="btn btn-warning d-flex align-items-center" title="Edit policy" aria-label="Edit policy">
+                <i class="fas fa-edit me-2"></i> Edit
+            </a>
+
+            {{-- Renew (icon-only) --}}
+            <a href="{{ route('renewals.renew', $policy->id) }}" class="btn btn-outline-warning d-flex align-items-center" title="Create renewal" aria-label="Create renewal">
+                <i class="fas fa-sync-alt"></i>
+            </a>
+        @endif
+
+        {{-- Print and history always available --}}
+        <a href="{{ route('policies.printDebitNote', $policy->id) }}" class="btn btn-success d-flex align-items-center" target="_blank" title="Print debit note" aria-label="Print debit note">
+            <i class="fas fa-file-invoice me-2"></i> Print Debit Note
+        </a>
+
+        <a href="{{ route('policies.history', $policy->id) }}" class="btn btn-secondary d-flex align-items-center" title="View renewal history" aria-label="View renewal history">
+            <i class="fas fa-history me-2"></i> View History
+        </a>
+    </div>
+
+    @if($policy->isCancelled())
+        <div class="alert alert-warning">This policy is <strong>canceled</strong>. All actions are disabled.</div>
+    @endif
+
+    {{-- New Sections: Endorsement Summary & History --}}
+    <div class="card-modern">
+        <div class="section-header-modern">
+            <div class="section-title">Endorsement Summary</div>
+        </div>
+        <div class="detail-list">
+            <div class="detail-item">
+                <div class="detail-label">Running Balance:</div>
+                <div class="detail-value" style="color: {{ $policy->balance >= 0 ? 'green' : 'red' }};">
+                    {{ number_format($policy->balance, 2) }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-modern">
+        <div class="section-header-modern">
+            <div class="section-title">Endorsement History</div>
+        </div>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Reason</th>
+                    <th>Effective Date</th>
+                    <th>Premium Impact</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($policy->endorsements as $endorsement)
+                <tr>
+                    <td>{{ $endorsement->endorsement_type }}</td>
+                    <td>{{ $endorsement->reason ?? 'N/A' }}</td>
+                    <td>{{ $endorsement->effective_date }}</td>
+                    <td style="color: {{ $endorsement->premium_impact >= 0 ? 'green' : 'red' }};">
+                        {{ number_format($endorsement->premium_impact, 2) }}
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
     </div>
 </div>
 

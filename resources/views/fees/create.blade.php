@@ -1,5 +1,6 @@
 @extends('layouts.appPages')
 
+
 @section('content')
 
 <style>

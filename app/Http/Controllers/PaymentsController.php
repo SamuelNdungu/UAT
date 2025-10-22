@@ -148,53 +148,108 @@ public function store(Request $request)
     // Store the allocation of a payment to policies
     public function storeAllocation(Request $request, $id)
     {
+        \Log::info('PaymentsController@storeAllocation: request received', ['payment_id' => $id, 'payload' => $request->all(), 'user_id' => optional(auth()->user())->id]);
         $validatedData = $request->validate([
             'allocations' => 'required|array',
             'allocations.*.policy_id' => 'required|exists:policies,id',
             'allocations.*.allocation_amount' => 'required|numeric',
         ]);
-    
+        // Server-side check: identify canceled targets but continue with other allocations
+        $canceled = [];
+        foreach ($validatedData['allocations'] as $allocationData) {
+            $policy = Policy::find($allocationData['policy_id']);
+            if ($policy && $policy->isCancelled()) {
+                $canceled[] = $policy->fileno ?? $policy->id;
+            }
+        }
+
+        if (!empty($canceled)) {
+            \Log::warning('PaymentsController@storeAllocation: attempted allocation includes canceled policies (these will be skipped)', ['payment_id' => $id, 'canceled' => $canceled, 'user_id' => optional(auth()->user())->id]);
+            // do not abort; we'll skip canceled policies and process the rest
+        }
+
         DB::beginTransaction();
-    
+
         try {
             $payment = Payment::findOrFail($id);
+
             $receipt = $payment->receipts->first(); // Assuming one receipt per payment
-    
+            if (!$receipt) {
+                \Log::error('PaymentsController@storeAllocation: no receipt found for payment', ['payment_id' => $id]);
+                return redirect()->back()->with('error', 'No receipt found for this payment. Allocation aborted.');
+            }
+
             $totalAllocated = 0;
-    
+
+            // Prepare allocations to process (skip canceled targets)
+            $allocationsToProcess = [];
             foreach ($validatedData['allocations'] as $allocationData) {
+                $policy = Policy::find($allocationData['policy_id']);
+                if ($policy && $policy->isCancelled()) {
+                    // skip canceled
+                    continue;
+                }
+                $allocationsToProcess[] = $allocationData;
+            }
+
+            if (empty($allocationsToProcess)) {
+                // Nothing to process (all allocations were canceled or zero)
+                \Log::info('PaymentsController@storeAllocation: no allocations to process after skipping canceled policies', ['payment_id' => $id, 'canceled' => $canceled, 'user_id' => optional(auth()->user())->id]);
+                if (!empty($canceled)) {
+                    $msg = 'All requested allocations were skipped because the targeted policies are canceled: ' . implode(', ', $canceled);
+                    return redirect()->back()->with('warning', $msg);
+                }
+                return redirect()->back()->with('info', 'No allocations to process.');
+            }
+
+            foreach ($allocationsToProcess as $allocationData) {
+                // Skip zero allocations to avoid creating no-op rows
+                $allocAmount = floatval($allocationData['allocation_amount']);
+                if ($allocAmount <= 0) {
+                    \Log::info('PaymentsController@storeAllocation: skipping zero allocation', ['payment_id' => $id, 'policy_id' => $allocationData['policy_id'], 'amount' => $allocAmount, 'user_id' => optional(auth()->user())->id]);
+                    continue;
+                }
+                $policy = Policy::find($allocationData['policy_id']);
+                if (!$policy) {
+                    \Log::warning('PaymentsController@storeAllocation: policy not found for allocation', ['payment_id' => $id, 'policy_id' => $allocationData['policy_id'], 'user_id' => optional(auth()->user())->id]);
+                    continue; // skip this allocation
+                }
+
+                // Create allocation record
                 $allocation = Allocation::create([
                     'payment_id' => $payment->id,
                     'policy_id' => $allocationData['policy_id'],
-                    'allocation_amount' => $allocationData['allocation_amount'],
+                    'allocation_amount' => $allocAmount,
                     'allocation_date' => now(),
+                    'user_id' => optional(auth()->user())->id,
                 ]);
-    
-                $policy = Policy::find($allocationData['policy_id']);
-    
+
+                \Log::info('PaymentsController@storeAllocation: allocation created', ['allocation_id' => $allocation->id, 'payment_id' => $payment->id, 'policy_id' => $policy->id, 'amount' => $allocAmount, 'user_id' => optional(auth()->user())->id]);
+
                 // Debugging: Log the policy before updating
-                \Log::info('Policy before update:', $policy->toArray());
-    
-                $policy->paid_amount += $allocationData['allocation_amount'];
-                //$policy->allocated_amount = $allocationData['allocation_amount'];
-                $policy->outstanding_amount -= $allocationData['allocation_amount'];
+                \Log::info('Policy before update', ['policy_id' => $policy->id, 'paid_amount' => $policy->paid_amount, 'balance' => $policy->balance]);
+
+                $policy->paid_amount += $allocAmount;
+                $policy->outstanding_amount -= $allocAmount;
                 $policy->balance = $policy->gross_premium - $policy->paid_amount;
                 $policy->save();
-    
+
                 // Debugging: Log the policy after updating
-                \Log::info('Policy after update:', $policy->toArray());
-    
-                $totalAllocated += $allocationData['allocation_amount'];
+                \Log::info('Policy after update', ['policy_id' => $policy->id, 'paid_amount' => $policy->paid_amount, 'balance' => $policy->balance]);
+
+                $totalAllocated += $allocAmount;
             }
-    
+
             // Update the receipt
             $receipt->allocated_amount += $totalAllocated;
             $receipt->remaining_amount -= $totalAllocated;
             $receipt->save();
-    
+
             // Debugging: Log the receipt after updating
-            \Log::info('Receipt after update:', $receipt->toArray());
-    
+            \Log::info('Receipt after update', $receipt->toArray());
+
+            \Log::info('PaymentsController@storeAllocation: allocation completed', ['payment_id' => $payment->id, 'total_allocated' => $totalAllocated, 'user_id' => optional(auth()->user())->id]);
+
             DB::commit();
             return redirect()->route('payments.index')->with('success', 'Payment allocated successfully.');
         } catch (\Exception $e) {

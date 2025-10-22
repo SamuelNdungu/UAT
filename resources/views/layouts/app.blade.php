@@ -42,6 +42,7 @@
         <link rel="stylesheet" href="//cdn.datatables.net/2.1.4/css/dataTables.dataTables.min.css">
         <link rel="stylesheet" href="https://cdn.datatables.net/2.1.4/css/dataTables.dataTables.css" />
         <link href="{{ asset('assets/css/dashboard.css') }}" rel="stylesheet">
+    @yield('styles')
     </head>
     <body class="  bg-gray-400">
 
@@ -100,6 +101,10 @@
                 <a class="nav-link" href="{{ route('home') }}">
                     <div class="sb-nav-link-icon"><i class="fas fa-tachometer-alt"></i></div>
                     Dashboard
+                </a>
+                                <a class="nav-link" href="{{ route('ai.index') }}">
+                    <div class="sb-nav-link-icon"><i class="fas fa-robot"></i></div>
+                    AI Assistant
                 </a>
                 <a class="nav-link" href="{{ route('customers.index') }}">
                     <div class="sb-nav-link-icon"><i class="fas fa-users"></i></div>
@@ -206,6 +211,6 @@ document.getElementById('sidebarToggle').addEventListener('click', function() {
 
 
 </script>
-
+@yield('scripts')
 </body>
 </html>

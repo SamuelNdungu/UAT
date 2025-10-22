@@ -19,9 +19,16 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FeesController;
 use App\Http\Controllers\RenewalController;
 use App\Http\Controllers\CustomerStatementController;
+use App\Http\Controllers\EndorsementController;
+use App\Http\Controllers\AiController;
 
 Route::get('/', function () {
     return view('welcome');
+});
+
+// Graceful top-level GET redirect for /ai/ask to avoid MethodNotAllowed
+Route::get('/ai/ask', function () {
+  return redirect('/ai');
 });
 
 Auth::routes();
@@ -96,6 +103,8 @@ Route::middleware(['auth'])->group(function () {
     // claims routes
     Route::post('/claims/store', [ClaimController::class, 'store'])->name('claims.store');
     Route::resource('claims', ClaimController::class); 
+  // Secure attachment streaming for claims
+  Route::get('/claims/{claim}/attachment/{idx}', [ClaimController::class, 'attachment'])->name('claims.attachment');
     Route::get('/api/search-policies', [ClaimController::class, 'searchPolicies']);
     Route::get('/api/get-policy-details', [ClaimController::class, 'getPolicyDetails']);
 
@@ -153,6 +162,7 @@ Route::post('/mpesa/callback', [MpesaPaymentController::class, 'handleMpesaCallb
    
 
   Route::get('/policies/{id}/print-debit-note', [PolicyController::class, 'printDebitNote'])->name('policies.printDebitNote');
+  Route::get('/policies/{id}/print-credit-note', [PolicyController::class, 'printCreditNote'])->name('policies.printCreditNote');
   Route::post('/fetch-data', [DashboardController::class, 'fetchData']);
   Route::post('/home', [HomeController::class, 'index'])->name('home.filter');
 
@@ -172,11 +182,41 @@ Route::post('/mpesa/callback', [MpesaPaymentController::class, 'handleMpesaCallb
 
     // Settings route
     Route::get('/settings', [App\Http\Controllers\SettingsController::class, 'index'])->name('settings.index');
+  // Company Data (singleton) routes
+  Route::get('/settings/company-data', [App\Http\Controllers\CompanyDataController::class, 'show'])->name('settings.company-data.show');
+  Route::get('/settings/company-data/edit', [App\Http\Controllers\CompanyDataController::class, 'edit'])->name('settings.company-data.edit');
+      Route::post('/fetch-data', [DashboardController::class, 'fetchData']);
+  
+    // AI assistant page (GET) - serves the UI
+    Route::get('/ai', function () {
+      return view('ai.ai');
+    })->name('ai.index');
+
+    // AI status endpoint used by the UI to check HTTP endpoint health
+    Route::get('/ai/status', [AiController::class, 'status'])->name('ai.status');
+
+    // Graceful GET handler for legacy or mistaken requests to /ai/ask
+    // Redirects to the AI UI page instead of throwing MethodNotAllowed.
+    Route::get('/ai/ask', function () {
+      return redirect()->route('ai.index');
+    });
+
+    // AI assistant API endpoint (POST) - receives prompts
+Route::post('/ai/ask', [AiController::class, 'generate'])->name('ai.ask');
+    Route::post('/ai/stream', [AiController::class, 'stream']);
+
+
+  Route::put('/settings/company-data', [App\Http\Controllers\CompanyDataController::class, 'update'])->name('settings.company-data.update');
   Route::resource('insurance_companies', App\Http\Controllers\InsuranceCompanyController::class);
   Route::resource('policy_types', App\Http\Controllers\PolicyTypeController::class);
   Route::resource('vehicle_types', App\Http\Controllers\VehicleTypeController::class);
   Route::resource('users', App\Http\Controllers\UserController::class);
-});
+    Route::resource('policies.endorsements', EndorsementController::class)->except(['edit', 'update', 'destroy']);
+  Route::get('/policies/{policy}/endorsements/{endorsement}/print', [EndorsementController::class, 'printNote'])->name('policies.endorsements.print');
+
+
+  });
 
 Route::get('customers/{id}/statement', [CustomerStatementController::class, 'generate'])
     ->name('customers.statement');
+    

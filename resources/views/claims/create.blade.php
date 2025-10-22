@@ -24,7 +24,7 @@
 				</div>
 				<div class="card-body">
 					<p class="small-muted">Search by File No, Policy Type or Reg No (type 3+ characters)</p>
-					<input type="text" id="search" class="form-control mb-2" placeholder="Search policies..." value="{{ old('search') }}">
+								<input type="text" id="search" class="form-control mb-2" placeholder="Search policies (3+ chars)" value="{{ old('search') }}">
 					<div id="results" class="list-group mb-3" style="max-height:260px; overflow:auto;"></div>
 
 					<div id="policy-details" class="mt-2">
@@ -59,6 +59,11 @@
 					<h4 class="mb-0"><i class="fas fa-file-medical-alt me-2 text-primary"></i>New Claim</h4>
 				</div>
 				<div class="card-body">
+					<!-- UX banner: explain disabled inputs for canceled policies -->
+					<div class="alert alert-info small d-none" id="claim-ux-banner">
+						<i class="fas fa-info-circle"></i>
+						Some policy fields/inputs may be disabled because the selected policy is <strong>canceled</strong>. Claims cannot be registered against canceled policies. If you believe this is an error, check the policy status or contact an administrator.
+					</div>
 					@if ($errors->any())
 						<div class="alert alert-danger">
 							<ul class="mb-0">
@@ -231,13 +236,35 @@ document.addEventListener('DOMContentLoaded', function () {
 					if (el && data[k] !== undefined) el.value = data[k];
 				});
 
-				// UI summary
+					// UI summary
 				document.getElementById('pd-fileno').innerText = data.fileno || 'N/A';
 				document.getElementById('pd-customer').innerText = data.customer_name || 'N/A';
 				document.getElementById('pd-insurer').innerText = data.insurer || 'N/A';
 				document.getElementById('pd-due').innerText = data.due_amount ? parseFloat(data.due_amount).toLocaleString() : '0.00';
 
+					// If policy is canceled, show banner and disable submit
+					const submitBtn = document.querySelector('#claimForm button[type="submit"]');
+					let existingAlert = document.getElementById('policy-cancel-alert');
+					const isCancelled = data.status && ['canceled','cancelled','cancel'].indexOf((data.status||'').toLowerCase()) !== -1;
+					if (isCancelled) {
+						document.getElementById('claim-ux-banner').classList.remove('d-none');
+						if (!existingAlert) {
+							const alertEl = document.createElement('div');
+							alertEl.id = 'policy-cancel-alert';
+							alertEl.className = 'alert alert-danger mt-2';
+							alertEl.innerHTML = '<strong>Policy canceled:</strong> Claims cannot be registered against canceled policies.';
+							// insert alert above the form
+							document.getElementById('claimForm').insertAdjacentElement('beforebegin', alertEl);
+						}
+						if (submitBtn) submitBtn.disabled = true;
+					} else {
+						document.getElementById('claim-ux-banner').classList.add('d-none');
+						if (existingAlert) existingAlert.remove();
+						if (submitBtn) submitBtn.disabled = false;
+					}
+
 				// render policy-details card
+				// UI summary (format dates)
 				document.getElementById('policy-details').innerHTML = `
 					<div class="card mb-2">
 						<div class="card-body small">
@@ -246,7 +273,7 @@ document.addEventListener('DOMContentLoaded', function () {
 								<div class="col-6"><strong>Reg No:</strong> ${data.reg_no || ''}</div>
 								<div class="col-6"><strong>Policy Type:</strong> ${data.policy_type || ''}</div>
 								<div class="col-6"><strong>Insurer:</strong> ${data.insurer || ''}</div>
-								<div class="col-6"><strong>Period:</strong> ${data.start_date || ''} → ${data.end_date || ''}</div>
+								<div class="col-6"><strong>Period:</strong> ${data.start_date ? new Date(data.start_date).toLocaleDateString() : ''} → ${data.end_date ? new Date(data.end_date).toLocaleDateString() : ''}</div>
 								<div class="col-6"><strong>Due:</strong> ${data.due_amount ? parseFloat(data.due_amount).toLocaleString() : '0.00'}</div>
 								<div class="col-12 small-muted mt-2"><em>Policy id (internal): ${data.policy_id ?? 'N/A'}. Display uses fileno (e.g. ${data.fileno ?? 'FN-00049'}).</em></div>
 							</div>

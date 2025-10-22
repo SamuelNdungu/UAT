@@ -1,46 +1,20 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Payments Report</title>
-    <style>
-        /* Add your styles here */
-        body {
-            font-family: Arial, sans-serif;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        .header h1 {
-            margin: 0;
-        }
-        .app-name {
-            margin: 0;
-            font-size: 12px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            border: 1px solid #000;
-            padding: 8px;
-            text-align: left;
-            white-space: nowrap; /* Prevent text from wrapping */
-            font-size: 10px; /* Reduce font size */
-        }
-        th {
-            background-color: #f2f2f2; /* Optional: Add background color to headers */
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
+@extends('layouts.pdf')
+
+@section('content')
+<style>
+    body { font-family: Arial, sans-serif; }
+    .report-title { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .report-title h1 { margin:0; font-size:18px; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { border:1px solid #000; padding:6px; text-align:left; font-size:10px; }
+    th { background:#f2f2f2; }
+</style>
+
+    <div class="report-title">
         <h1>Payments Report</h1>
         <div class="app-name">{{ config('app.name') }}</div>
     </div>
+
     <table>
         <thead>
             <tr>
@@ -66,10 +40,10 @@
                     <td>KES {{ number_format($payment->payment_amount, 2) }}</td>
                     <td>KES {{ number_format(optional($payment->receipts->first())->allocated_amount ?? 0, 2) }}</td>
                     <td>KES {{ number_format(optional($payment->receipts->first())->remaining_amount ?? $payment->payment_amount, 2) }}</td>
-                    <td>{{ optional($payment->receipts->first())->allocated_amount > 0 ? 'Yes' : 'No' }}</td> <!-- Indicating allocated status -->
+                    <td>{{ optional($payment->receipts->first())->allocated_amount > 0 ? 'Yes' : 'No' }}</td>
                 </tr>
             @endforeach
         </tbody>
     </table>
-</body>
-</html>
+
+@endsection

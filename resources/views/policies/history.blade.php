@@ -58,6 +58,17 @@
                                 <a href="{{ route('policies.show', $p->id) }}" class="btn btn-sm btn-info me-1">
                                     <i class="bi bi-eye"></i> View
                                 </a>
+                                {{-- Direct print button for renewals: opens debit note print in new tab --}}
+                                @php
+                                    // Choose credit note if policy is canceled or premium is negative
+                                    $printRoute = ($p->isCancelled() || ($p->premium ?? 0) < 0)
+                                        ? route('policies.printCreditNote', $p->id)
+                                        : route('policies.printDebitNote', $p->id);
+                                    $printLabel = ($p->isCancelled() || ($p->premium ?? 0) < 0) ? 'Print Credit Note' : 'Print Debit Note';
+                                @endphp
+                                <a href="{{ $printRoute }}" class="btn btn-sm btn-secondary me-1" target="_blank" title="{{ $printLabel }}">
+                                    <i class="bi bi-printer"></i> Print
+                                </a>
                                 @if($p->id != $policy->id)
                                     <a href="{{ route('renewals.renew', $p->id) }}" class="btn btn-sm btn-warning">
                                         <i class="bi bi-arrow-repeat"></i> Renew

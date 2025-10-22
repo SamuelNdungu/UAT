@@ -79,4 +79,14 @@ class RenewalController extends Controller
             return redirect()->back()->with('error', 'Failed to send renewal SMS.');
         }
     }
+
+    public function renew($id)
+    {
+        $policy = Policy::findOrFail($id);
+        if ($policy->isCancelled()) {
+            return redirect()->route('policies.show', $policy->id)
+                ->with('error', 'Canceled policies cannot be renewed.');
+        }
+        // ...existing renewal logic...
+    }
 }

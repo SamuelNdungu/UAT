@@ -16,9 +16,12 @@ class ClaimEvent extends Model
     ];
 
     // Relationship to Claim
-    public function events()
-{
-    return $this->hasMany(ClaimEvent::class);
-}
+    /**
+     * The claim this event belongs to.
+     */
+    public function claim()
+    {
+        return $this->belongsTo(Claim::class, 'claim_id');
+    }
 
 }

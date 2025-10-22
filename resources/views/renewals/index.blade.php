@@ -91,6 +91,7 @@
                             <th>Sum Insured</th>                           
                             <th>Gross Premium</th> 
                             <th>Status</th>
+                            <th>Notice Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -107,41 +108,88 @@
                             <td>{{ \Carbon\Carbon::parse($policy->start_date)->format('d-m-Y') }}</td> 
                             <td>{{ \Carbon\Carbon::parse($policy->end_date)->format('d-m-Y') }}</td>
                             <td>{{ $policy->insurer_name }}</td>
-                            <td>{{ $policy->policy_no }}</td>
+                            <td>
+                                {{ $policy->policy_no }}
+                                @if(method_exists($policy, 'isCancelled') && $policy->isCancelled())
+                                    <span class="badge bg-danger ms-2" title="Policy canceled" style="background-color:#dc3545;color:#fff;padding:.25em .4em;border-radius:.25rem;font-weight:700;font-size:75%;">Canceled</span>
+                                @endif
+                                @php
+                                    $renewalRecord = $policy->renewalsAsRenewed()->with('originalPolicy')->first();
+                                @endphp
+                                @if($renewalRecord)
+                                    <span class="badge bg-info ms-2" title="Renewal of policy #{{ $renewalRecord->originalPolicy->policy_no ?? $renewalRecord->original_policy_id }}" style="background-color:#17a2b8;color:#fff;padding:.25em .4em;border-radius:.25rem;font-weight:700;font-size:75%;">Renewal</span>
+                                @elseif($policy->renewalsAsOriginal()->exists())
+                                    <span class="badge bg-success ms-2" title="Has renewals" style="background-color:#28a745;color:#fff;padding:.25em .4em;border-radius:.25rem;font-weight:700;font-size:75%;">Renewed</span>
+                                @endif
+                            </td>
                             <td>{{ $policy->reg_no }}</td>
                             <td>{{ $policy->make }}</td>
                             <td>{{ $policy->model }}</td> 
                             <td>{{ $policy->sum_insured }}</td>                         
                             <td>{{ number_format($policy->gross_premium, 2) }}</td> 
                             <td>{{ $policy->status }}</td>
+                            <td>
+                                @php
+                                    $note = null;
+                                    if (!empty($notices) && isset($notices[$policy->fileno])) {
+                                        $note = $notices[$policy->fileno];
+                                    }
+                                @endphp
+                                @if($note)
+                                    Sent ({{ strtoupper($note['channel'] ?? 'email') }}) — {{ \Carbon\Carbon::parse($note['sent_at'])->format('d-m-Y H:i') }}
+                                @else
+                                    Not Sent
+                                @endif
+                            </td>
                             <td style="white-space: nowrap; position: sticky; right: 0; background-color: white; z-index: 100; padding: 2px; border-left: 1px solid #ddd;">
-	{{-- View (icon only, no button) --}}
-	<a href="{{ route('policies.show', $policy->id) }}" aria-label="View" title="View"
-	   style="color: #17a2b8; margin-right: 8px; font-size: 0.9rem;">
-		<i class="fas fa-eye" aria-hidden="true"></i>
-	</a>
+    {{-- If cancelled or already renewed, only show view --}}
+    @if($policy->isCancelled() || $policy->isRenewed())
+        <a href="{{ route('policies.show', $policy->id) }}" aria-label="View" title="View"
+           style="color: #17a2b8; margin-right: 8px; font-size: 0.9rem;">
+            <i class="fas fa-eye" aria-hidden="true"></i>
+        </a>
+    @else
+        {{-- View (icon only) --}}
+        <a href="{{ route('policies.show', $policy->id) }}" aria-label="View" title="View"
+           style="color: #17a2b8; margin-right: 8px; font-size: 0.9rem;">
+            <i class="fas fa-eye" aria-hidden="true"></i>
+        </a>
 
-	{{-- Renew (icon only, no button) --}}
-	<a href="{{ route('renewals.renew', $policy->id) }}" aria-label="Renew" title="Renew"
-	   style="color: #ffc107; margin-right: 8px; font-size: 0.9rem;">
-		<i class="fas fa-pencil-alt" aria-hidden="true"></i>
-	</a>
+        {{-- Renew (icon only) --}}
+        <a href="{{ route('renewals.renew', $policy->id) }}" aria-label="Renew" title="Renew"
+           style="color: #ffc107; margin-right: 8px; font-size: 0.9rem;">
+            <i class="fas fa-pencil-alt" aria-hidden="true"></i>
+        </a>
+    @endif
 
 	{{-- Send renewal email (icon only) --}}
-	<a href="{{ route('customers.sendRenewalEmail', $policy->id) }}"
-	   title="Send renewal email"
-	   onclick="return confirm('Send renewal email to {{ addslashes($policy->customer_name) }}?');"
-	   style="color: #007bff; margin-right: 8px; font-size: 0.9rem;">
-		<i class="fas fa-envelope" aria-hidden="true"></i>
-	</a>
+    @php $isCancelled = $policy->isCancelled(); @endphp
+    @if($isCancelled)
+        <span title="Policy cancelled" style="color: #9aa0a6; margin-right: 8px; font-size: 0.9rem; cursor: not-allowed;">
+            <i class="fas fa-envelope" aria-hidden="true"></i>
+        </span>
+    @else
+        <a href="{{ route('customers.sendRenewalEmail', $policy->id) }}"
+           title="Send renewal email"
+           onclick="return confirm('Send renewal email to {{ addslashes($policy->customer_name) }}?');"
+           style="color: #007bff; margin-right: 8px; font-size: 0.9rem;">
+            <i class="fas fa-envelope" aria-hidden="true"></i>
+        </a>
+    @endif
 
 	{{-- Send renewal SMS (icon only) --}}
-	<a href="{{ route('customers.sendRenewalSms', $policy->id) }}"
-	   title="Send renewal SMS"
-	   onclick="return confirm('Send renewal SMS to {{ addslashes($policy->customer_name) }}?');"
-	   style="color: #28a745; font-size: 0.9rem;">
-		<i class="fas fa-sms" aria-hidden="true"></i>
-	</a>
+    @if($isCancelled)
+        <span title="Policy cancelled" style="color: #9aa0a6; font-size: 0.9rem; cursor: not-allowed;">
+            <i class="fas fa-sms" aria-hidden="true"></i>
+        </span>
+    @else
+        <a href="{{ route('customers.sendRenewalSms', $policy->id) }}"
+           title="Send renewal SMS"
+           onclick="return confirm('Send renewal SMS to {{ addslashes($policy->customer_name) }}?');"
+           style="color: #28a745; font-size: 0.9rem;">
+            <i class="fas fa-sms" aria-hidden="true"></i>
+        </a>
+    @endif
 </td>
                         </tr>
                         @endforeach

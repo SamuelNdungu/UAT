@@ -1,50 +1,88 @@
 <?php
 
+// INSIDE: 2025_01_12_210032_alter_policies_table_change_documents_to_json.php
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-class AlterPoliciesTableChangeDocumentsToJson extends Migration
+return new class extends Migration
 {
-    public function up()
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
     {
-        // Ensure the documents column is of text type before altering
-        DB::statement("ALTER TABLE policies ALTER COLUMN documents TYPE text");
+        // 1. Conditional check: Only run data migration if the column is NOT YET jsonb.
+        // This is a safety measure if the migration failed and partially ran before.
+        $columnType = DB::getSchemaBuilder()->getColumnType('policies', 'documents');
 
-        // Create a temporary column to store the JSON data
-        DB::statement("ALTER TABLE policies ADD COLUMN documents_temp json");
+        if ($columnType === 'text' || $columnType === 'varchar') {
+            
+            // Handle NULL values by setting them to an empty JSON array string
+            DB::statement("UPDATE policies SET documents = '[]' WHERE documents IS NULL");
 
-        // Convert existing data to JSON format
-        DB::statement("UPDATE policies SET documents_temp = '[]' WHERE documents IS NULL");
-        DB::statement("
-    UPDATE policies 
-    SET documents_temp = json_agg(json_build_object('name', trim(value), 'description', NULL)) 
-    FROM jsonb_array_elements(
-        text_to_jsonb('[' || replace(documents, ',', '","') || ']')::jsonb
-    ) AS element(value) 
-    WHERE documents IS NOT NULL AND documents != '[]'
-");
-
-        // Drop the original documents column
-        DB::statement("ALTER TABLE policies DROP COLUMN documents");
-
-        // Rename the temporary column to documents
-        DB::statement("ALTER TABLE policies ALTER COLUMN documents_temp RENAME TO documents");
+            // 2. Data Migration: Convert "doc1,doc2" string to JSONB array format
+            // CRITICAL FIX: Add explicit CAST (documents::text) to avoid ERROR: function string_to_array(jsonb, unknown) does not exist
+            DB::statement("
+                UPDATE policies p
+                SET documents = sub.new_documents::text
+                FROM (
+                    SELECT
+                        id,
+                        jsonb_agg(jsonb_build_object('name', TRIM(doc_name), 'description', NULL)) AS new_documents
+                    FROM
+                        policies,
+                        -- Explicitly cast 'documents' to TEXT here
+                        unnest(string_to_array(documents::text, ',')) AS doc_name
+                    WHERE
+                        documents IS NOT NULL AND documents != '[]' AND documents !~ '^\s*$'
+                    GROUP BY 1
+                ) AS sub
+                WHERE
+                    p.id = sub.id;
+            ");
+            
+            // 3. Schema Change: Alter column type to JSONB using the required explicit cast.
+            DB::statement("ALTER TABLE policies ALTER COLUMN documents TYPE jsonb USING documents::jsonb");
+        }
+        
+        // If the column is already jsonb, this entire block is skipped, and the migration succeeds.
     }
 
-    public function down()
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
     {
-        // Revert the documents column to text type if needed
-        DB::statement("ALTER TABLE policies ADD COLUMN documents_temp text");
+        // 1. Data Reversion: Convert JSONB array back to comma-separated string.
+        // Use an IF EXISTS check to ensure the column is actually jsonb before trying to revert data
+        $columnType = DB::getSchemaBuilder()->getColumnType('policies', 'documents');
 
-        // Convert existing JSON data back to text format
-        DB::statement("UPDATE policies SET documents_temp = (SELECT string_agg(name, ',') FROM jsonb_array_elements(documents) AS element(name text, description text)) WHERE documents IS NOT NULL AND documents != '[]'");
-        DB::statement("UPDATE policies SET documents_temp = NULL WHERE documents = '[]'");
+        if ($columnType === 'jsonb' || $columnType === 'json') {
+            DB::statement("
+                UPDATE policies p
+                SET documents = sub.new_documents
+                FROM (
+                    SELECT
+                        id,
+                        string_agg(element->>'name', ',' ORDER BY element->>'name') AS new_documents
+                    FROM
+                        policies,
+                        jsonb_array_elements(documents) AS element
+                    WHERE
+                        jsonb_typeof(documents) = 'array'
+                    GROUP BY 1
+                ) AS sub
+                WHERE
+                    p.id = sub.id;
+            ");
 
-        // Drop the original documents column
-        DB::statement("ALTER TABLE policies DROP COLUMN documents");
-
-        // Rename the temporary column to documents
-        DB::statement("ALTER TABLE policies ALTER COLUMN documents_temp RENAME TO documents");
+            // 2. Schema Change: Alter column type back to TEXT.
+            DB::statement("ALTER TABLE policies ALTER COLUMN documents TYPE text USING documents::text");
+            
+            // 3. Revert empty strings/arrays to NULL
+            DB::statement("UPDATE policies SET documents = NULL WHERE documents = ''");
+        }
     }
-}
+};
