@@ -7,7 +7,21 @@
     <!-- CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ config('app.name', 'Emely Insurance') }}</title>
+    @php
+        // Prefer company name from CompanyData for page title and alt text
+        $companyName = null;
+        try {
+            if (class_exists('\App\\Models\\CompanyData')) {
+                $__c = \App\Models\CompanyData::first();
+                if ($__c && !empty($__c->company_name)) {
+                    $companyName = $__c->company_name;
+                }
+            }
+        } catch (\Throwable $__e) {
+            $companyName = null;
+        }
+    @endphp
+    <title>{{ $companyName ?? config('app.name', 'Emely Insurance') }}</title>
         <!-- Reference the custom CSS file -->
         <link href="{{ asset('assets/css/dashboard.css') }}" rel="stylesheet">
         <!-- Chart.js -->
@@ -48,10 +62,67 @@
 
 
         <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
-            <!-- Navbar Brand-->
-            <a class="navbar-brand" href="{{ url('/home') }}">
-                        {{ config('app.name', 'Emely Insurance') }}
-                    </a>
+            <!-- Navbar Brand: prefer company logo from CompanyData (public storage) then fall back to common public paths -->
+            @php
+                // Try company logo from CompanyData first (uploaded via settings, stored on 'public' disk)
+                $logoUrl = null;
+                try {
+                    $company = null;
+                    if (class_exists('\App\\Models\\CompanyData')) {
+                        $company = \App\Models\CompanyData::first();
+                    }
+
+                    if ($company && !empty($company->logo_path) && \Storage::disk('public')->exists($company->logo_path)) {
+                        // asset('storage/...') expects the public/storage symlink
+                        $logoUrl = asset('storage/' . ltrim($company->logo_path, '/'));
+                    }
+                } catch (\Throwable $e) {
+                    // ignore and fall back to file checks below
+                    $logoUrl = null;
+                }
+
+                if (! $logoUrl) {
+                    // check a few common public paths for a company logo
+                    $possibleLogos = [
+                        'storage/company/logo.png',
+                        'storage/company/logo.jpg',
+                        'assets/img/company-logo.png',
+                        'assets/img/company-logo.jpg',
+                        'assets/img/logo.png',
+                        'assets/img/logo.jpg',
+                        'img/logo.png',
+                        'img/company-logo.png',
+                    ];
+                    foreach ($possibleLogos as $p) {
+                        if (file_exists(public_path($p))) {
+                            $logoUrl = asset($p);
+                            break;
+                        }
+                    }
+                }
+            @endphp
+
+            <a class="navbar-brand d-flex align-items-center" href="{{ url('/home') }}">
+                @if(!empty($logoUrl))
+                    <img src="{{ $logoUrl }}" alt="{{ $companyName ?? config('app.name', 'Emely Insurance') }}" style="height:36px; max-height:42px; object-fit:contain;" />
+                @else
+                    @php
+                        // Prefer company name from CompanyData when available
+                        $companyNameFallback = null;
+                        try {
+                            if (class_exists('\App\\Models\\CompanyData')) {
+                                $c = \App\Models\CompanyData::first();
+                                if ($c && !empty($c->company_name)) {
+                                    $companyNameFallback = $c->company_name;
+                                }
+                            }
+                        } catch (\Throwable $ex) {
+                            $companyNameFallback = null;
+                        }
+                    @endphp
+                    {{ $companyNameFallback ?? config('app.name', 'Emely Insurance') }}
+                @endif
+            </a>
             <!-- Sidebar Toggle-->
             <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#!"><i class="fas fa-bars"></i></button>
             <!-- Navbar Search-->

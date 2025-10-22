@@ -3,7 +3,16 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ config('app.name', 'Emely Insurance') }} - PDF</title>
+    @php
+        $__companyName = null;
+        try {
+            if (class_exists('\App\\Models\\CompanyData')) {
+                $__c = \App\Models\CompanyData::first();
+                if ($__c && !empty($__c->company_name)) $__companyName = $__c->company_name;
+            }
+        } catch (\Throwable $__e) { $__companyName = null; }
+    @endphp
+    <title>{{ $__companyName ?? config('app.name', 'Emely Insurance') }} - PDF</title>
     <style>
         /* Basic PDF-friendly styles */
         body { font-family: 'DejaVu Sans', 'Arial', sans-serif; font-size: 12px; color: #222; }

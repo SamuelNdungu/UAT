@@ -79,7 +79,12 @@
         <div class="col-md-6">
             <!-- Logo -->
             <div class="text-center mb-4">
-                <img src="{{ asset('img/logo.png') }}" alt="Logo" class="img-fluid" style="max-height: 80px;">
+                @include('partials.company_logo')
+                @if(!empty($companyLogoUrl))
+                    <img src="{{ $companyLogoUrl }}" alt="Logo" class="img-fluid" style="max-height: 80px;">
+                @else
+                    <img src="{{ asset('img/logo.png') }}" alt="Logo" class="img-fluid" style="max-height: 80px;">
+                @endif
             </div>
             <div class="card">
                 <div class="card-header text-center">

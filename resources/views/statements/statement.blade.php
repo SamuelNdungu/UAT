@@ -136,8 +136,11 @@
     </div>
 
     {{-- Header logo (prefer local file path to avoid remote fetch) --}}
+    @include('partials.company_logo')
     @if(!empty($company_logo_local))
         <div style="text-align:center;margin-bottom:10px"><img src="{{ $company_logo_local }}" style="max-width:180px;max-height:60px"/></div>
+    @elseif(!empty($companyLogoUrl))
+        <div style="text-align:center;margin-bottom:10px"><img src="{{ $companyLogoUrl }}" style="max-width:180px;max-height:60px"/></div>
     @elseif(isset($company) && !empty($company->logo_path))
         @if(stripos($company->logo_path, 'http') === 0)
             {{-- Remote URL (we tried to download earlier but fallback to print URL) --}}

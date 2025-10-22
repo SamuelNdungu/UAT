@@ -35,8 +35,17 @@
 
         <p>Please contact us to renew your policy.</p>
 
+        @php
+            $__companyName = null;
+            try {
+                if (class_exists('\App\\Models\\CompanyData')) {
+                    $__c = \App\Models\CompanyData::first();
+                    if ($__c && !empty($__c->company_name)) $__companyName = $__c->company_name;
+                }
+            } catch (\Throwable $__e) { $__companyName = null; }
+        @endphp
         <p>Thank you,</p>
-        <p>{{ config('app.name') }}</p>
+        <p>{{ $__companyName ?? config('app.name') }}</p>
 
         <p class="small">This is an automated reminder generated on {{ $generatedAt }}.</p>
     </div>

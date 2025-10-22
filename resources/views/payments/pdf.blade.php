@@ -10,9 +10,18 @@
     th { background:#f2f2f2; }
 </style>
 
+    @php
+        $__companyName = null;
+        try {
+            if (class_exists('\App\\Models\\CompanyData')) {
+                $__cd = \App\Models\CompanyData::first();
+                if ($__cd && !empty($__cd->company_name)) $__companyName = $__cd->company_name;
+            }
+        } catch (\Throwable $__e) { $__companyName = null; }
+    @endphp
     <div class="report-title">
         <h1>Payments Report</h1>
-        <div class="app-name">{{ config('app.name') }}</div>
+        <div class="app-name">{{ $__companyName ?? config('app.name') }}</div>
     </div>
 
     <table>

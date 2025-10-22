@@ -43,9 +43,16 @@
     <!-- Top Navigation Bar -->
     <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
             <!-- Navbar Brand-->
-            <a class="navbar-brand" href="{{ url('/home') }}">
-                        {{ config('app.name', 'Emely Insurance') }}
-                    </a>
+            @php
+                $__companyName = null;
+                try {
+                    if (class_exists('\App\\Models\\CompanyData')) {
+                        $__c = \App\Models\CompanyData::first();
+                        if ($__c && !empty($__c->company_name)) $__companyName = $__c->company_name;
+                    }
+                } catch (\Throwable $__e) { $__companyName = null; }
+            @endphp
+            <a class="navbar-brand" href="{{ url('/home') }}">{{ $__companyName ?? config('app.name', 'Emely Insurance') }}</a>
             <!-- Sidebar Toggle-->
             <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#!"><i class="fas fa-bars"></i></button>
             <!-- Navbar Search-->

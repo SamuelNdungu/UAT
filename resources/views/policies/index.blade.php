@@ -186,6 +186,30 @@
                             <td>{{ number_format($policy->paid_amount ?? 0, 2) }}</td>
                             <td>{{ number_format($policy->balance ?? 0, 2) }}</td>
                             <td class="actions-cell" style="position: sticky; right: 0; background: #fff; z-index: 2; box-shadow: -2px 0 5px -2px #ccc;">
+                                {{-- Quick status badge for UX: Canceled / Renewal / Renewed --}}
+                                @php
+                                    $statusBadgeHtml = null;
+                                    try {
+                                        if (method_exists($policy, 'isCancelled') && $policy->isCancelled()) {
+                                            $statusBadgeHtml = '<span class="badge bg-danger" title="Policy canceled" style="background-color:#dc3545;color:#fff;padding:.25em .45em;border-radius:.25rem;font-weight:700;font-size:75%;display:inline-block;margin-bottom:6px;">Canceled</span>';
+                                        } else {
+                                            $__renew = null;
+                                            try { $__renew = $policy->renewalsAsRenewed()->with('originalPolicy')->first(); } catch (\Throwable $__e) { $__renew = null; }
+                                            if ($__renew) {
+                                                $statusBadgeHtml = '<span class="badge bg-info" title="Renewal" style="background-color:#17a2b8;color:#fff;padding:.25em .45em;border-radius:.25rem;font-weight:700;font-size:75%;display:inline-block;margin-bottom:6px;">Renewal</span>';
+                                            } elseif (method_exists($policy, 'renewalsAsOriginal') && $policy->renewalsAsOriginal()->exists()) {
+                                                $statusBadgeHtml = '<span class="badge bg-success" title="Has renewals" style="background-color:#28a745;color:#fff;padding:.25em .45em;border-radius:.25rem;font-weight:700;font-size:75%;display:inline-block;margin-bottom:6px;">Renewed</span>';
+                                            }
+                                        }
+                                    } catch (\Throwable $e) {
+                                        $statusBadgeHtml = null;
+                                    }
+                                @endphp
+
+                                @if($statusBadgeHtml)
+                                    {!! $statusBadgeHtml !!}
+                                @endif
+
                                 {{-- The 'View' button is always available --}}
                                 <a href="{{ route('policies.show', $policy->id) }}" class="btn btn-sm btn-info" title="View"><i class="fas fa-eye" style="font-size: 0.7em;"></i></a>
 

@@ -21,7 +21,12 @@
                         @if($storageHasLogo)
                             <img src="{{ asset('storage/' . $storageLogo) }}" alt="Logo" class="img-fluid mb-2" style="max-height:120px;">
                         @elseif($publicHasLogo)
-                            <img src="{{ asset('img/logo.png') }}" alt="Logo" class="img-fluid mb-2" style="max-height:120px;">
+                            @include('partials.company_logo')
+                            @if(!empty($companyLogoUrl))
+                                <img src="{{ $companyLogoUrl }}" alt="Logo" class="img-fluid mb-2" style="max-height:120px;">
+                            @else
+                                <img src="{{ asset('img/logo.png') }}" alt="Logo" class="img-fluid mb-2" style="max-height:120px;">
+                            @endif
                         @endif
                     </div>
                     <div class="col-md-9">

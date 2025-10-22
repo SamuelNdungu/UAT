@@ -309,9 +309,20 @@ class PolicyController extends Controller
             ->firstOrFail();
 
         // Safely decode the documents field
-        $docs = $policy->documents ?? '[]';
-        $policy->documents = json_decode($docs, true);
-        if (json_last_error() !== JSON_ERROR_NONE || !is_array($policy->documents)) {
+        $docs = $policy->documents ?? null;
+        // If it's already an array (e.g., casted earlier), keep it
+        if (is_array($docs)) {
+            $policy->documents = $docs;
+        } elseif (is_string($docs)) {
+            $decoded = json_decode($docs, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $policy->documents = $decoded;
+            } else {
+                // Try to recover if the value was stored as a PHP serialized array or malformed
+                $policy->documents = [];
+            }
+        } else {
+            // Null or unexpected type: default to empty array
             $policy->documents = [];
         }
 

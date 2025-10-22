@@ -22,7 +22,7 @@
                         @if($company && $company->company_name)
                             <div style="font-size:20px; font-weight:700; color:#222;">{{ $company->company_name }}</div>
                         @else
-                            <div style="font-size:20px; font-weight:700; color:#222;">{{ config('app.name', 'Company') }}</div>
+                            <div style="font-size:20px; font-weight:700; color:#222;">{{ $company && !empty($company->company_name) ? $company->company_name : config('app.name', 'Company') }}</div>
                         @endif
                     @endif
                 </div>
@@ -42,7 +42,7 @@
                             @if($company->website) <div><strong>Website:</strong> {{ $company->website }}</div> @endif
                         </div>
                     @else
-                        <div style="font-weight:700; font-size:16px;">{{ config('app.name', 'Company') }}</div>
+                        <div style="font-weight:700; font-size:16px;">{{ $company && !empty($company->company_name) ? $company->company_name : config('app.name', 'Company') }}</div>
                     @endif
 
                     {{-- Optional extra header content (e.g., document title, invoice no) --}}

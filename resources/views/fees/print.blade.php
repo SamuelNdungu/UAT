@@ -2,7 +2,12 @@
 <html>
 <head>
     <title>Invoice</title>
-    <link rel="icon" href="{{ asset('img/logo.png') }}" type="image/png">
+    @include('partials.company_logo')
+    @if(!empty($companyLogoUrl))
+        <link rel="icon" href="{{ $companyLogoUrl }}" type="image/png">
+    @else
+        <link rel="icon" href="{{ asset('img/logo.png') }}" type="image/png">
+    @endif
     <!-- Include Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
