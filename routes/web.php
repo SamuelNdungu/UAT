@@ -21,6 +21,7 @@ use App\Http\Controllers\RenewalController;
 use App\Http\Controllers\CustomerStatementController;
 use App\Http\Controllers\EndorsementController;
 use App\Http\Controllers\AiController;
+use App\Http\Controllers\DocumentController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -157,6 +158,16 @@ Route::post('/mpesa/callback', [MpesaPaymentController::class, 'handleMpesaCallb
 
   Route::get('payments/{id}/print-receipt', [PaymentsController::class, 'printReceipt'])->name('payments.printReceipt');
 
+  // Debug route: show generated SQL for payments search (enabled only in debug)
+  if (config('app.debug')) {
+      Route::get('/debug/payments-search-sql', [PaymentsController::class, 'debugSearchSql'])->name('debug.payments.search.sql');
+  }
+
+  // MPESA transactions admin
+  Route::get('/mpesa/transactions', [\App\Http\Controllers\MpesaTransactionController::class, 'index'])->name('mpesa.transactions.index');
+  Route::get('/mpesa/transactions/{id}', [\App\Http\Controllers\MpesaTransactionController::class, 'show'])->name('mpesa.transactions.show');
+  Route::post('/mpesa/transactions/{id}/apply', [\App\Http\Controllers\MpesaTransactionController::class, 'applyAllocation'])->name('mpesa.transactions.apply');
+
   Route::get('/collection/export/pdf', [CollectionController::class, 'exportPdf'])->name('collection.export.pdf');
   Route::get('/collection/export/excel', [CollectionController::class, 'exportExcel'])->name('collection.export.excel');
    
@@ -167,6 +178,9 @@ Route::post('/mpesa/callback', [MpesaPaymentController::class, 'handleMpesaCallb
   Route::post('/home', [HomeController::class, 'index'])->name('home.filter');
 
   Route::get('/performance', [PerformanceController::class, 'index'])->name('performance');
+
+  // Dashboard routes
+  Route::get('/dashboard/monthly-sales-commission', [DashboardController::class, 'monthlySalesCommission'])->name('dashboard.monthlySalesCommission');
 
   // Fees routes
   Route::get('/fees', [FeesController::class, 'index'])->name('fees.index');
@@ -212,11 +226,134 @@ Route::post('/ai/ask', [AiController::class, 'generate'])->name('ai.ask');
   Route::resource('vehicle_types', App\Http\Controllers\VehicleTypeController::class);
   Route::resource('users', App\Http\Controllers\UserController::class);
     Route::resource('policies.endorsements', EndorsementController::class)->except(['edit', 'update', 'destroy']);
-  Route::get('/policies/{policy}/endorsements/{endorsement}/print', [EndorsementController::class, 'printNote'])->name('policies.endorsements.print');
+    // NEW: top-level endorsement print route so /endorsements/{id}/print and route('endorsements.print') work
+    Route::get('/endorsements/{endorsement}/print', [EndorsementController::class, 'printNote'])->name('endorsements.print');
 
+    // existing nested print route (keep for backward compatibility)
+    Route::get('/policies/{policy}/endorsements/{endorsement}/print', [EndorsementController::class, 'printNote'])->name('policies.endorsements.print');
+Route::get('policies/customer-agent', [PolicyController::class, 'getCustomerAgent'])->name('policies.customer.agent');
 
   });
 
 Route::get('customers/{id}/statement', [CustomerStatementController::class, 'generate'])
     ->name('customers.statement');
+    Route::get('/test-logo', function() {
+    $company = \App\Models\CompanyData::first();
+    return view('partials.company_logo', [
+        'company' => $company,
+        'as_data' => false, // Test web mode
+        'max_width' => 200
+    ]);
+});
+
+Route::get('/test-logo-pdf', function() {
+    $company = \App\Models\CompanyData::first();
+    return view('partials.company_logo', [
+        'company' => $company,
+        'as_data' => true, // Test PDF mode
+        'max_width' => 200
+    ]);
+});
+
+// NEW route: send customer statement via email
+Route::get('customers/{customer}/email-statement', [CustomerController::class, 'emailStatement'])
+    ->name('customers.emailStatement')
+    ->middleware('auth'); // keep consistent with your other customer routes
+
+// NEW: Download customer statement as PDF
+Route::get('customers/{customer}/download-statement', [CustomerController::class, 'downloadStatement'])
+    ->name('customers.downloadStatement')
+    ->middleware('auth');
+
+
+    // This is the new route for downloading documents
+Route::get('/documents/{document}/download', [DocumentController::class, 'download'])
+     ->name('documents.download')
+     ->middleware('auth'); // Protect the route
+     // Document Routes (Used by customer.edit and customer.show)
+Route::middleware(['auth'])->group(function () {
+    // Route for downloading a document (used in customer.edit/show onclick)
+    Route::get('documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
     
+    // Route for deleting a document (used in the hidden form in customer.edit/show)
+    Route::delete('documents/{document}', [DocumentController::class, 'destroy'])->name('documents.destroy');
+});
+// Temporary debug route - add to web.php
+Route::get('/check-logo', function() {
+    $company = \App\Models\CompanyData::first();
+    
+    if (!$company) return "No company data";
+    
+    return [
+        'company_name' => $company->company_name,
+        'logo_path_in_db' => $company->logo_path,
+        'file_exists_in_storage' => \Storage::disk('public')->exists($company->logo_path) ? 'YES' : 'NO',
+        'files_in_company_logos' => \Storage::disk('public')->files('company_logos'),
+        'logo_url' => $company->getLogoUrl(),
+        'direct_file_check' => file_exists(storage_path('app/public/' . $company->logo_path)) ? 'YES' : 'NO'
+    ];
+});
+
+// Settings route
+Route::middleware(['auth'])->prefix('settings')->name('settings.')->group(function () {
+    // ...other settings routes...
+    Route::resource('agents', \App\Http\Controllers\AgentController::class);
+});
+
+ 
+
+// Group for all reports
+Route::group(['prefix' => 'reports', 'middleware' => ['auth']], function () {
+    // Sales Report
+    // =========================================================================
+// REPORTS MODULE ROUTES
+// Defines the named routes needed for the sidebar navigation links.
+// =========================================================================
+Route::middleware(['auth'])->prefix('reports')->group(function () {
+    Route::get('sales', [ReportController::class, 'salesIndex'])->name('reports.sales');
+    Route::get('debt-aging', [ReportController::class, 'debtAgingIndex'])->name('reports.debt_aging');
+    Route::get('claims-analysis', [ReportController::class, 'claimsIndex'])->name('reports.claims');
+    Route::get('renewals-tracking', [ReportController::class, 'renewalsIndex'])->name('reports.renewals');
+    Route::get('commissions-payable', [ReportController::class, 'commissionsIndex'])->name('reports.commissions');
+});
+    Route::get('sales/export', [ReportController::class, 'exportSalesReport'])->name('reports.sales.export');
+    
+    // Add this route, making sure it uses the correct controller and method
+Route::get('/reports/sales/export', [ReportController::class, 'salesExport'])->name('reports.sales.export');
+
+ 
+});
+Route::middleware(['auth'])->group(function () {
+    // ... existing routes ...
+
+    // SALES REPORTS
+    Route::get('reports/sales', [ReportController::class, 'salesIndex'])->name('reports.sales.index');
+
+    // EXPORT ROUTES
+    // Ensure both Excel and PDF routes are defined with the correct names
+    Route::get('reports/sales/export-excel', [ReportController::class, 'salesExport'])->name('reports.sales.export.excel');
+    Route::get('reports/sales/export-pdf', [ReportController::class, 'salesPdfExport'])->name('reports.sales.export.pdf'); // <-- THIS WAS MISSING!
+});
+
+// Add route for printing/downloading invoice PDF from policy show page
+Route::middleware(['auth'])->get('/policies/{policy}/invoice', [App\Http\Controllers\PolicyController::class, 'printInvoice'])->name('policies.printInvoice');
+
+// Test email route (temporary - remove after testing)
+Route::get('/test-email', function () {
+    try {
+        $email = 's2ndungu@gmail.com';
+        \Illuminate\Support\Facades\Mail::send('emails.test', [], function($message) use ($email) {
+            $message->to($email)
+                   ->subject('Bima Connect - Test Email');
+        });
+        return "Test email sent to {$email}";
+    } catch (\Exception $e) {
+        return "Error: " . $e->getMessage();
+    }
+});
+
+// Renewal Notices Routes
+Route::get('/renewals', [App\Http\Controllers\RenewalController::class, 'index'])->name('renewals.index');
+Route::get('/renewals/export/excel', [App\Http\Controllers\RenewalController::class, 'exportExcel'])->name('renewals.export.excel');
+Route::get('/renewals/export/pdf', [App\Http\Controllers\RenewalController::class, 'exportPdf'])->name('renewals.export.pdf');
+Route::get('/renewals/{policy}/renew', [App\Http\Controllers\RenewalController::class, 'renew'])->name('renewals.renew'); // Assuming this route already exists

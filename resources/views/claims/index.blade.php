@@ -107,66 +107,63 @@
                             <th>Follow-up Date</th>
                             <th>Amount Claimed</th>
                             <th>Amount Paid</th>
-                            <th>Status</th>
-                            <th>Uploaded Document</th>
+                            <th>Status</th> 
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody style="white-space: nowrap;">
-                        @foreach($claims as $claim)
-                            <tr class="claim-row" data-status="{{ $claim->status }}" data-policy-status="{{ $claim->policy_status ?? ($claim->policy->status ?? '') }}">
-                                <td>{{ $claim->id }}</td>
-                                <td>{{ $claim->claim_number }}</td>
-                                <td>{{ $claim->fileno }}</td>
-                                <td>{{ $claim->policy_number ?? 'N/A' }}</td>
-                                <td>{{ $claim->policy_type_name ?? 'N/A' }}</td>
-                                <td>{{ $claim->reg_no ?? 'N/A' }}</td>
-                                <td>{{ number_format($claim->sum_insured, 2) ?? 'N/A' }}</td>
-                                <td>{{ $claim->customer_name ?? 'N/A' }}</td>
-                                <td>{{ $claim->customer_code }}</td>
-                                <td>{{ $claim->claimant_name }}</td>
-                                <td class="reported-date">{{ \Carbon\Carbon::parse($claim->reported_date)->toIso8601String() }}</td>
-                                <td>{{ $claim->type_of_loss }}</td>
-                                <td class="loss-date">{{ \Carbon\Carbon::parse($claim->loss_date)->toIso8601String() }}</td>
-                                <td class="followup-date">{{ $claim->followup_date ? \Carbon\Carbon::parse($claim->followup_date)->toIso8601String() : '' }}</td>
-                                <td>{{ number_format($claim->amount_claimed, 2) }}</td>
-                                <td>{{ $claim->amount_paid ? number_format($claim->amount_paid, 2) : 'N/A' }}</td>
-                                <td>{{ $claim->status }}</td>
-                                <td>
-                                    @php
-                                        $latestDoc = null;
-                                        try {
-                                            $latestDoc = \App\Models\Document::where('claim_id', $claim->id)->latest()->first();
-                                        } catch (\Exception $e) {
-                                            $latestDoc = null;
-                                        }
-                                    @endphp
-                                    @if($latestDoc && $latestDoc->path)
-                                        <a href="{{ route('claims.attachment', ['claim' => $claim->id, 'idx' => basename($latestDoc->path)]) }}" target="_blank">{{ \Illuminate\Support\Str::limit($latestDoc->original_name ?? basename($latestDoc->path), 30) }}</a>
-                                    @elseif($claim->upload_file)
-                                        <a href="{{ asset('storage/' . $claim->upload_file) }}" target="_blank">View Document</a>
-                                    @else
-                                        N/A
-                                    @endif
-                                </td>
-                                <td style="white-space: nowrap; position: sticky; right: 0; background-color: white; z-index: 100; padding: 2px; border-left: 1px solid #ddd;">
-                                    <a href="{{ route('claims.show', $claim->id) }}" class="btn btn-info btn-xs action-view" aria-label="View" title="View" data-bs-toggle="tooltip" data-bs-placement="top" style="font-size: 0.5rem; padding: 2px 5px;">
-                                        <i class="fas fa-eye" aria-hidden="true" style="font-size: 0.5rem;"></i>
-                                    </a>
-                                    <a href="{{ route('claims.edit', $claim->id) }}" class="btn btn-warning btn-xs action-edit" aria-label="Edit" title="Edit" data-bs-toggle="tooltip" data-bs-placement="top" style="font-size: 0.5rem; padding: 2px 5px;">
-                                        <i class="fas fa-pencil-alt" aria-hidden="true" style="font-size: 0.5rem;"></i>
-                                    </a>
-                                    <form action="{{ route('claims.destroy', $claim->id) }}" method="POST" style="display:inline;" onsubmit="return confirmDelete()">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-danger btn-xs action-delete" aria-label="Delete" title="Delete" data-bs-toggle="tooltip" data-bs-placement="top" style="font-size: 0.5rem; padding: 2px 5px;">
-                                            <i class="fas fa-trash" aria-hidden="true" style="font-size: 0.5rem;"></i>
-                                        </button>
-                                    </form>
-                                </td>
+                        @if($claims->count() === 0)
+                            <tr>
+                                <td colspan="19" class="text-center">No claims found.</td>
                             </tr>
-                        @endforeach
-                    </tbody>
+                        @else
+                            @foreach($claims as $claim)
+                                @php
+                                    // safe helpers for both array/stdClass/Eloquent
+                                    $id = data_get($claim,'id');
+                                    $policyStatus = data_get($claim,'policy_status', data_get($claim,'policy.status',''));
+                                    $reportedRaw = data_get($claim,'reported_date');
+                                    $lossRaw = data_get($claim,'loss_date');
+                                    $followRaw = data_get($claim,'followup_date');
+                                @endphp
+                                <tr class="claim-row" data-status="{{ data_get($claim,'status','') }}" data-policy-status="{{ $policyStatus }}">
+                                    <td>{{ $id }}</td>
+                                    <td>{{ data_get($claim,'claim_number','N/A') }}</td>
+                                    <td>{{ data_get($claim,'fileno','') }}</td>
+                                    <td>{{ data_get($claim,'policy_number','N/A') }}</td>
+                                    <td>{{ data_get($claim,'policy_type_name','N/A') }}</td>
+                                    <td>{{ data_get($claim,'reg_no','N/A') }}</td>
+                                    <td>{{ is_numeric(data_get($claim,'sum_insured')) ? number_format(data_get($claim,'sum_insured'), 2) : data_get($claim,'sum_insured','N/A') }}</td>
+                                    <td>{{ data_get($claim,'customer_name','N/A') }}</td>
+                                    <td>{{ data_get($claim,'customer_code','') }}</td>
+                                    <td>{{ data_get($claim,'claimant_name','') }}</td>
+                                    <td class="reported-date">{{ $reportedRaw ? \Carbon\Carbon::parse($reportedRaw)->toIso8601String() : '' }}</td>
+                                    <td>{{ data_get($claim,'type_of_loss','') }}</td>
+                                    <td class="loss-date">{{ $lossRaw ? \Carbon\Carbon::parse($lossRaw)->toIso8601String() : '' }}</td>
+                                    <td class="followup-date">{{ $followRaw ? \Carbon\Carbon::parse($followRaw)->toIso8601String() : '' }}</td>
+                                    <td>{{ is_numeric(data_get($claim,'amount_claimed')) ? number_format(data_get($claim,'amount_claimed'), 2) : data_get($claim,'amount_claimed','N/A') }}</td>
+                                    <td>{{ is_numeric(data_get($claim,'amount_paid')) ? number_format(data_get($claim,'amount_paid'), 2) : 'N/A' }}</td>
+                                    <td>{{ data_get($claim,'status','') }}</td>
+                                     
+                                    <td style="white-space: nowrap; position: sticky; right: 0; background-color: white; z-index: 100; padding: 2px; border-left: 1px solid #ddd;">
+                                        <a href="{{ route('claims.show', $id) }}" class="btn btn-info btn-xs action-view" aria-label="View" title="View" data-bs-toggle="tooltip" data-bs-placement="top" style="font-size: 0.5rem; padding: 2px 5px;">
+                                            <i class="fas fa-eye" aria-hidden="true" style="font-size: 0.5rem;"></i>
+                                        </a>
+                                        <a href="{{ route('claims.edit', $id) }}" class="btn btn-warning btn-xs action-edit" aria-label="Edit" title="Edit" data-bs-toggle="tooltip" data-bs-placement="top" style="font-size: 0.5rem; padding: 2px 5px;">
+                                            <i class="fas fa-pencil-alt" aria-hidden="true" style="font-size: 0.5rem;"></i>
+                                        </a>
+                                        <form action="{{ route('claims.destroy', $id) }}" method="POST" style="display:inline;" onsubmit="return confirmDelete()">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-danger btn-xs action-delete" aria-label="Delete" title="Delete" data-bs-toggle="tooltip" data-bs-placement="top" style="font-size: 0.5rem; padding: 2px 5px;">
+                                                <i class="fas fa-trash" aria-hidden="true" style="font-size: 0.5rem;"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        @endif
+                     </tbody>
                     <tfoot>
                         <tr>
                             <th>#</th>
@@ -185,8 +182,7 @@
                             <th>Follow-up Date</th>
                             <th>Amount Claimed</th>
                             <th>Amount Paid</th>
-                            <th>Status</th>
-                            <th>Uploaded Document</th>
+                            <th>Status</th> 
                             <th>Actions</th>
                         </tr>
                     </tfoot>
@@ -213,8 +209,8 @@ $(document).ready(function() {
         "autoWidth": false,
         "order": [[0, "asc"]],
         "columnDefs": [
-            { "orderable": false, "targets": [17, 18] }, // Disable ordering for the last two columns
-            { "searchable": false, "targets": [17, 18] } // Disable search for the last two columns
+            { "orderable": false, "targets": [17] }, // Disable ordering for the Actions column
+            { "searchable": false, "targets": [17] } // Disable search for the Actions column
         ],
         "lengthMenu": [5, 10, 25, 50],
         "pageLength": 10,

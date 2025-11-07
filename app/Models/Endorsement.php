@@ -56,7 +56,13 @@ class Endorsement extends Model
         'delta_courtesy_car' => 'decimal:2',
         'delta_ppl' => 'decimal:2',
         'delta_road_rescue' => 'decimal:2',
+        'premium_impact' => 'decimal:2',
+        'additions' => 'array',
+        'deletions' => 'array',
     ];
+
+    // expose a normalized net impact attribute
+    protected $appends = ['net_impact'];
 
     public function policy(): BelongsTo
     {
@@ -66,5 +72,24 @@ class Endorsement extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function getNetImpactAttribute()
+    {
+        // Prefer delta_net_premium (newer migrations), then delta_gross_premium, then premium_impact
+        if (! is_null($this->delta_net_premium) && $this->delta_net_premium !== '') {
+            return (float) $this->delta_net_premium;
+        }
+
+        if (! is_null($this->delta_gross_premium) && $this->delta_gross_premium !== '') {
+            return (float) $this->delta_gross_premium;
+        }
+
+        if (! is_null($this->premium_impact) && $this->premium_impact !== '') {
+            return (float) $this->premium_impact;
+        }
+
+        // fallback 0.0
+        return 0.0;
     }
 }

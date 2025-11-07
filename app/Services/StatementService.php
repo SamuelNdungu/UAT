@@ -209,7 +209,7 @@ class StatementService
     /**
      * Send a policy renewal notice email listing upcoming renewals for a customer.
      */
-    public function sendRenewalNotice(string $customerCode, string $emailTo, ?array $policyIds = null): bool
+    public function sendRenewalNotice(string $customerCode, string $emailTo, ?array $policyIds = null, ?int $noticeDay = null): bool
     {
         try {
             $customer = Customer::where('customer_code', $customerCode)->first();
@@ -251,9 +251,11 @@ class StatementService
             Log::info('StatementService: renewal notice sent', ['to' => $emailTo, 'customer' => $customerCode]);
 
             // Record renewal notice to prevent duplicates and for auditing
-            try {
+                try {
                 if (!empty($policies)) {
                     foreach ($policies as $p) {
+                        $meta = ['subject' => $subject];
+                        if (!is_null($noticeDay)) $meta['notice_day'] = $noticeDay;
                         RenewalNotice::create([
                             'fileno' => $p['fileno'] ?? null,
                             'policy_id' => null,
@@ -262,7 +264,7 @@ class StatementService
                             'sent_at' => now(),
                             'sent_by' => auth()->id() ?? null,
                             'message_id' => null,
-                            'meta' => ['subject' => $subject],
+                            'meta' => $meta,
                         ]);
                     }
                 } elseif (is_array($policyIds) && count($policyIds) > 0) {
@@ -270,6 +272,8 @@ class StatementService
                     $found = Policy::whereIn('id', $policyIds)->get(['id','fileno']);
                     if ($found->count() > 0) {
                         foreach ($found as $fp) {
+                            $meta = ['subject' => $subject];
+                            if (!is_null($noticeDay)) $meta['notice_day'] = $noticeDay;
                             RenewalNotice::create([
                                 'fileno' => $fp->fileno ?? null,
                                 'policy_id' => $fp->id,
@@ -278,11 +282,13 @@ class StatementService
                                 'sent_at' => now(),
                                 'sent_by' => auth()->id() ?? null,
                                 'message_id' => null,
-                                'meta' => ['subject' => $subject],
+                                'meta' => $meta,
                             ]);
                         }
                     } else {
                         // fallback: create a single batch notice with policy ids in meta
+                        $meta = ['subject' => $subject, 'policy_ids' => $policyIds];
+                        if (!is_null($noticeDay)) $meta['notice_day'] = $noticeDay;
                         RenewalNotice::create([
                             'fileno' => null,
                             'policy_id' => null,
@@ -291,11 +297,13 @@ class StatementService
                             'sent_at' => now(),
                             'sent_by' => auth()->id() ?? null,
                             'message_id' => null,
-                            'meta' => ['subject' => $subject, 'policy_ids' => $policyIds],
+                            'meta' => $meta,
                         ]);
                     }
                 } else {
                     // no specific policies; create a generic notice indicating a send for the customer
+                    $meta = ['subject' => $subject];
+                    if (!is_null($noticeDay)) $meta['notice_day'] = $noticeDay;
                     RenewalNotice::create([
                         'fileno' => null,
                         'policy_id' => null,
@@ -304,7 +312,7 @@ class StatementService
                         'sent_at' => now(),
                         'sent_by' => auth()->id() ?? null,
                         'message_id' => null,
-                        'meta' => ['subject' => $subject],
+                        'meta' => $meta,
                     ]);
                 }
             } catch (\Throwable $ex) {

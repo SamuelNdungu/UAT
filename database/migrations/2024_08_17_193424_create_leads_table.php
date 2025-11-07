@@ -11,7 +11,8 @@ return new class extends Migration
      */
     public function up()
 {
-    Schema::create('leads', function (Blueprint $table) {
+        if (! Schema::hasTable('leads')) {
+            Schema::create('leads', function (Blueprint $table) {
         $table->id();
         $table->string('lead_type'); // Corporate or Individual
         $table->string('corporate_name')->nullable();
@@ -27,7 +28,8 @@ return new class extends Migration
         $table->string('lead_source');
         $table->text('notes')->nullable();
         $table->timestamps();
-    });
+            });
+        }
 }
 
 

@@ -1,5 +1,7 @@
 @extends('layouts.appLR')
 
+@inject('companySettings', 'App\Models\CompanyData')
+
 @section('content')
 <style>
     body {
@@ -79,13 +81,13 @@
         <div class="col-md-6">
             <!-- Logo -->
             <div class="text-center mb-4">
-                @include('partials.company_logo')
-                @if(!empty($companyLogoUrl))
-                    <img src="{{ $companyLogoUrl }}" alt="Logo" class="img-fluid" style="max-height: 80px;">
-                @else
-                    <img src="{{ asset('img/logo.png') }}" alt="Logo" class="img-fluid" style="max-height: 80px;">
-                @endif
+                 @php
+                    // Allow welcome view to use the shared company logo partial. Pass companySettings into the partial.
+                    $company = $companySettings::first();
+                @endphp
+                @include('partials.company_logo', ['company' => $company, 'max_width' => 220])
             </div>
+
             <div class="card">
                 <div class="card-header text-center">
                     <h2 class="mb-0 text-white gradient-text">{{ __('Login') }}</h2>
@@ -95,34 +97,40 @@
                         @csrf
                         <div class="mb-3">
                             <label for="email" class="form-label">{{ __('Email') }}</label>
-                            <input id="email" type="email" class="form-control @error('email') is-invalid @enderror" 
-                                name="email" value="{{ old('email') }}" required autocomplete="email" autofocus>
+                            <input id="email" type="email" 
+                                   class="form-control @error('email') is-invalid @enderror" 
+                                   name="email" value="{{ old('email') }}" required autocomplete="email" autofocus>
                             @error('email')
                                 <div class="invalid-feedback">
                                     {{ $message }}
                                 </div>
                             @enderror
                         </div>
+
                         <div class="mb-3">
                             <label for="password" class="form-label">{{ __('Password') }}</label>
-                            <input id="password" type="password" class="form-control @error('password') is-invalid @enderror" 
-                                name="password" required autocomplete="current-password">
+                            <input id="password" type="password" 
+                                   class="form-control @error('password') is-invalid @enderror" 
+                                   name="password" required autocomplete="current-password">
                             @error('password')
                                 <div class="invalid-feedback">
                                     {{ $message }}
                                 </div>
                             @enderror
                         </div>
+
                         <div class="form-check mb-3">
-                            <input class="form-check-input" type="checkbox" name="remember" id="remember" 
+                            <input class="form-check-input" type="checkbox" name="remember" id="remember"
                                 {{ old('remember') ? 'checked' : '' }}>
                             <label class="form-check-label" for="remember">
                                 {{ __('Remember Me') }}
                             </label>
                         </div>
+
                         <div class="d-grid mb-3">
                             <button type="submit" class="btn btn-primary btn-lg">{{ __('Login') }}</button>
                         </div>
+
                         @if (Route::has('password.request'))
                             <div class="text-center mb-3">
                                 <a class="text-decoration-none text-primary" href="{{ route('password.request') }}">
@@ -130,7 +138,7 @@
                                 </a>
                             </div>
                         @endif
- 
+
                         <!-- Optional: Social Icons -->
                         <div class="text-center mt-4 social-icons">
                             <a href="#" class="text-decoration-none"><i class="fab fa-facebook-f"></i></a>

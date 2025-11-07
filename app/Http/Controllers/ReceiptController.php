@@ -18,5 +18,19 @@ class PolicyController extends Controller
         // ...existing code...
     }
 
-    // ...existing code...
+
+public function printReceipt($id)
+{
+    $payment = Payment::with(['customer', 'receipts', 'allocations.policy'])->findOrFail($id);
+    $company = \App\Models\CompanyData::first();
+    
+    $pdf = PDF::loadView('receipts.pdf', [
+        'payment' => $payment,
+        'company' => $company
+    ]);
+    
+    // Generate and use the dynamic filename
+    $filename = 'receipt-' . $payment->receipts->first()->receipt_number . '.pdf';
+    return $pdf->download($filename);
+}
 }

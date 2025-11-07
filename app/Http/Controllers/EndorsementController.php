@@ -138,6 +138,17 @@ class EndorsementController extends Controller
             $payload['description'] = $validatedData['reason'];
         }
 
+        // If type is 'deletion' and user provided positive deltas, convert them to negative values
+        $type = $validatedData['type'] ?? null;
+        if (in_array($type, ['deletion', 'cancellation'])) {
+            // Normalize sign for any delta_* keys present in payload
+            foreach ($payload as $col => $val) {
+                if (strpos($col, 'delta_') === 0 && is_numeric($val) && $val > 0) {
+                    $payload[$col] = -$val;
+                }
+            }
+        }
+
         // Handle cancellation defaulting: if the endorsements table stores deltas and user selected cancellation, set deltas = negative current policy values
         if (($validatedData['type'] ?? null) === 'cancellation') {
             foreach ($fieldMap as $inputKey => $colName) {
@@ -158,14 +169,22 @@ class EndorsementController extends Controller
             }
         }
 
+        // Ensure premium_impact is not null (DB requires it)
+        if (!isset($payload['premium_impact']) || is_null($payload['premium_impact'])) {
+            // Prefer validated net_premium / premium (user inputs), then payload delta_net_premium / delta_premium, else 0
+            $payload['premium_impact'] = $validatedData['net_premium'] ?? $validatedData['premium'] ?? $payload['delta_net_premium'] ?? $payload['delta_premium'] ?? 0;
+        }
+
+        // Create endorsement
         $endorsement = Endorsement::create($payload);
 
+        // Update policy totals using the endorsement delta_* columns (not endorsement->sum_insured etc.)
         $policy->update([
-            'sum_insured' => $policy->sum_insured + $endorsement->sum_insured,
-            'premium' => $policy->premium + $endorsement->premium,
-            'commission' => $policy->commission + $endorsement->commission,
-            'net_premium' => $policy->net_premium + $endorsement->net_premium,
-            'balance' => $policy->balance + $endorsement->balance,
+            'sum_insured' => $policy->sum_insured + ($endorsement->delta_sum_insured ?? 0),
+            'premium'     => $policy->premium     + ($endorsement->delta_premium ?? 0),
+            'commission'  => $policy->commission  + ($endorsement->delta_commission ?? 0),
+            'net_premium' => $policy->net_premium + ($endorsement->delta_net_premium ?? 0),
+            'balance'     => $policy->balance     + ($endorsement->delta_balance ?? 0), // delta_balance if present
         ]);
 
         if ($validatedData['type'] === 'cancellation') {
@@ -183,11 +202,68 @@ class EndorsementController extends Controller
         return view('endorsements.show', compact('policy', 'endorsement'));
     }
 
-    public function printNote($policyId, $endorsementId)
+    /**
+     * Print a Deletion endorsement (credit note layout same as cancellation).
+     */
+    public function printDeletion($policyId, $endorsementId)
     {
         $policy = Policy::findOrFail($policyId);
         $endorsement = $policy->endorsements()->findOrFail($endorsementId);
-        $pdf = Pdf::loadView('endorsements.endorsement_note', compact('policy', 'endorsement'));
-        return $pdf->download('endorsement_note_' . $endorsement->id . '.pdf');
+
+        // Optionally ensure the endorsement is of type deletion (soft check)
+        // if ($endorsement->type !== 'deletion') { abort(400, 'Endorsement is not a deletion.'); }
+
+        return $this->downloadEndorsementPdf($policy, $endorsement, 'deletion');
+    }
+
+    /**
+     * Print an Addition endorsement (use same layout as cancellation/credit note or create separate view later).
+     */
+    public function printAddition($policyId, $endorsementId)
+    {
+        $policy = Policy::findOrFail($policyId);
+        $endorsement = $policy->endorsements()->findOrFail($endorsementId);
+
+        // Optionally ensure the endorsement is of type addition (soft check)
+        // if ($endorsement->type !== 'addition') { abort(400, 'Endorsement is not an addition.'); }
+
+        return $this->downloadEndorsementPdf($policy, $endorsement, 'addition');
+    }
+
+    /**
+     * Helper: generate and return the PDF download for a given endorsement.
+     *
+     * @param  \App\Models\Policy  $policy
+     * @param  \App\Models\Endorsement  $endorsement
+     * @param  string|null $label  optional label to use in filename (e.g. 'deletion')
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse|\Illuminate\Http\Response
+     */
+    private function downloadEndorsementPdf(Policy $policy, Endorsement $endorsement, ?string $label = null)
+    {
+        $view = 'endorsements.endorsement_note'; // reuse existing cancellation/credit-note view
+        $typeLabel = $label ? $label : ($endorsement->type ?? 'endorsement');
+        $fileName = sprintf('%s_endorsement_%d.pdf', $typeLabel, $endorsement->id);
+
+        $pdf = Pdf::loadView($view, compact('policy', 'endorsement'));
+
+        return $pdf->download($fileName);
+    }
+
+    // Replace the existing printNote method with this flexible version
+    public function printNote($policyIdOrEndorsementId, $endorsementId = null)
+    {
+        // Called via /policies/{policy}/endorsements/{endorsement}/print
+        if (!is_null($endorsementId)) {
+            $policy = \App\Models\Policy::findOrFail($policyIdOrEndorsementId);
+            $endorsement = $policy->endorsements()->findOrFail($endorsementId);
+        } else {
+            // Called via top-level /endorsements/{endorsement}/print
+            $endorsement = \App\Models\Endorsement::findOrFail($policyIdOrEndorsementId);
+            // Prefer relation; fallback to policy_id
+            $policy = $endorsement->policy ?? \App\Models\Policy::findOrFail($endorsement->policy_id);
+        }
+
+        // Reuse existing helper to generate/download the PDF
+        return $this->downloadEndorsementPdf($policy, $endorsement, $endorsement->type ?? 'endorsement');
     }
 }

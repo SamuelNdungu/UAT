@@ -1,33 +1,39 @@
+@php
+    use App\Models\CompanyData;
+    // Ensure company is available to the header
+    $headerCompany = $company ?? CompanyData::first();
+@endphp
 <!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    @php
-        $__companyName = null;
-        try {
-            if (class_exists('\App\\Models\\CompanyData')) {
-                $__c = \App\Models\CompanyData::first();
-                if ($__c && !empty($__c->company_name)) $__companyName = $__c->company_name;
-            }
-        } catch (\Throwable $__e) { $__companyName = null; }
-    @endphp
-    <title>{{ $__companyName ?? config('app.name', 'Emely Insurance') }} - PDF</title>
+    <title>{{ ($headerCompany->company_name ?? config('app.name', 'Company')) }} - PDF</title>
     <style>
-        /* Basic PDF-friendly styles */
-        body { font-family: 'DejaVu Sans', 'Arial', sans-serif; font-size: 12px; color: #222; }
-        .container { width: 100%; padding: 10px; }
-        .text-right { text-align: right; }
-        .text-center { text-align: center; }
-        .small { font-size: 0.85em; color: #666; }
-        table { width: 100%; border-collapse: collapse; }
-        table th, table td { padding: 6px 8px; border: 1px solid #ddd; }
+        body { 
+            font-family: 'DejaVu Sans', 'Arial', sans-serif; 
+            font-size: 12px; 
+            color: #222; 
+            margin: 0;
+            padding: 0;
+        }
+
+        .content-wrapper {
+            padding: 10mm;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        @include('layouts.pdf_header')
-        @yield('content')
+    <div class="a4-container">
+        <!-- Header constrained to A4 width -->
+        <div class="content-wrapper">
+            @include('layouts.pdf_header', ['company' => $headerCompany])
+        </div>
+        
+        <!-- Content area -->
+        <div class="content-wrapper">
+            @yield('content')
+        </div>
     </div>
 </body>
 </html>

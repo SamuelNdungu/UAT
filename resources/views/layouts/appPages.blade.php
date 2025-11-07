@@ -10,7 +10,7 @@
     <title>{{ config('app.name', 'Emely Insurance') }}</title>
     <!-- Bootstrap CSS -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrQkTy1zXS1ORQfrI6EaD94ICFPJ5p4L28/9HdOCxUs1D14jFRUqKFl2SoTiEUbMfpNU3gN0V8A8j5Rdrg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" xintegrity="sha512-Fo3rlrQkTy1zXS1ORQfrI6EaD94ICFPJ5p4L28/9HdOCxUs1D14jFRUqKFl2SoTiEUbMfpNU3gN0V8A8j5Rdrg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
 
 <!-- DataTables CSS -->
@@ -138,7 +138,72 @@
                     <div class="sb-nav-link-icon"><i class="fas fa-file-invoice"></i></div>
                     Fees
                 </a>
-                                <!-- AI Assistant link moved to the top of the sidebar -->
+                
+                <!-- START REPORTING MODULE MENU ITEM -->
+                <li class="nav-item">
+                    <!-- Main Reports Link/Dropdown Trigger -->
+                    <a class="nav-link {{ request()->routeIs('reports.*') ? 'active' : '' }}" 
+                       data-bs-toggle="collapse" 
+                       href="#reportsMenu" 
+                       role="button" 
+                       aria-expanded="{{ request()->routeIs('reports.*') ? 'true' : 'false' }}" 
+                       aria-controls="reportsMenu">
+                        <i class="fas fa-chart-bar fa-fw"></i> 
+                        <span class="ms-2">Reports</span>
+                        <i class="fas fa-angle-down ms-auto"></i>
+                    </a>
+
+                    <!-- Collapsible Sub-Menu -->
+                    <div class="collapse {{ request()->routeIs('reports.*') ? 'show' : '' }}" id="reportsMenu">
+                        <ul class="nav flex-column ps-3">
+                            
+                            <!-- Financial Reports -->
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('reports.sales') ? 'active bg-light text-primary' : '' }}" 
+                                   href="{{ route('reports.sales') }}">
+                                    <i class="fas fa-cash-register fa-fw"></i> Sales & Production
+                                </a>
+                            </li>
+
+                            <li class="nav-item">
+                                <!-- Placeholder Route -->
+                                <a class="nav-link {{ request()->routeIs('reports.debt_aging') ? 'active bg-light text-primary' : '' }}" 
+                                   href="{{ route('reports.debt_aging') }}">
+                                    <i class="fas fa-clock fa-fw"></i> Debt Aging
+                                </a>
+                            </li>
+
+                            <!-- Operational Reports -->
+                            <li class="nav-item">
+                                <!-- Placeholder Route -->
+                                <a class="nav-link {{ request()->routeIs('reports.claims') ? 'active bg-light text-primary' : '' }}" 
+                                   href="{{ route('reports.claims') }}">
+                                    <i class="fas fa-hand-holding-medical fa-fw"></i> Claims Analysis
+                                </a>
+                            </li>
+                            
+                            <li class="nav-item">
+                                <!-- Placeholder Route -->
+                                <a class="nav-link {{ request()->routeIs('reports.renewals') ? 'active bg-light text-primary' : '' }}" 
+                                   href="{{ route('reports.renewals') }}">
+                                    <i class="fas fa-redo fa-fw"></i> Renewals Tracking
+                                </a>
+                            </li>
+
+                            <li class="nav-item">
+                                <!-- Placeholder Route -->
+                                <a class="nav-link {{ request()->routeIs('reports.commissions') ? 'active bg-light text-primary' : '' }}" 
+                                   href="{{ route('reports.commissions') }}">
+                                    <i class="fas fa-money-check-alt fa-fw"></i> Commission Payable
+                                </a>
+                            </li>
+
+                        </ul>
+                    </div>
+                </li>
+                <!-- END REPORTING MODULE MENU ITEM -->
+                
+                <!-- AI Assistant link moved to the top of the sidebar -->
                     <a class="nav-link" href="{{ route('settings.index') }}">
                         <div class="sb-nav-link-icon"><i class="fas fa-cog"></i></div>
                         Settings

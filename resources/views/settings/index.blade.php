@@ -66,6 +66,17 @@
                 </div>
             </a>
         </div>
+        <div class="col-md-6 col-lg-4">
+            <a href="{{ route('settings.agents.create') }}" class="settings-card card shadow-sm text-decoration-none">
+                <div class="card-body d-flex align-items-center">
+                    <span class="settings-card-icon bg-dark text-white me-3"><i class="fas fa-user-tie"></i></span>
+                    <div>
+                        <h5 class="mb-1">Agents</h5>
+                        <p class="mb-0 text-muted">Manage and add insurance agents for commission tracking.</p>
+                    </div>
+                </div>
+            </a>
+        </div>
     </div>
  
 </div>

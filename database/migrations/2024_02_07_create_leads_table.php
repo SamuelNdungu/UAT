@@ -8,10 +8,33 @@ return new class extends Migration
 {
     public function up()
     {
-        // First drop the foreign key constraint from policies table
-        Schema::table('policies', function (Blueprint $table) {
-            $table->dropForeign(['lead_id']);
-        });
+        // First attempt to drop the foreign key constraint from policies table
+        // only if the column exists. Wrap in a try/catch in case the constraint
+        // name differs or was not created.
+        if (Schema::hasTable('policies') && Schema::hasColumn('policies', 'lead_id')) {
+            // Try to find any foreign key constraints referencing the policies.lead_id
+            // column and drop them by name. This avoids executing a drop that
+            // would fail and leave the transaction in an aborted state.
+            try {
+                $fks = \DB::select(
+                    "SELECT conname FROM pg_constraint
+                     JOIN pg_class ON conrelid = pg_class.oid
+                     JOIN pg_attribute ON attrelid = conrelid AND attnum = ANY(conkey)
+                     WHERE pg_class.relname = ? AND attname = ? AND contype = 'f'",
+                    ['policies', 'lead_id']
+                );
+
+                foreach ($fks as $fk) {
+                    $name = $fk->conname;
+                    if ($name) {
+                        \DB::statement("ALTER TABLE policies DROP CONSTRAINT IF EXISTS \"{$name}\"");
+                    }
+                }
+            } catch (\Throwable $e) {
+                // ignore any errors here; if we cannot drop the constraint
+                // migration will continue and creation of leads will proceed.
+            }
+        }
 
         Schema::dropIfExists('leads');
         Schema::create('leads', function (Blueprint $table) {

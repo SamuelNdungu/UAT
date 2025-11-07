@@ -25,7 +25,7 @@ chinyerusem
         <thead>
             <tr>
                 <th>File No.</th>
-                <th>Buss Date</th>
+                <th>Entry Date</th>
                 <th>Name</th>
                 <th>Policy Type</th>
                 <th>Start Date</th>

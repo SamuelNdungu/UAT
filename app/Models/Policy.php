@@ -22,6 +22,7 @@ class Policy extends Model
         'start_date',
         'days',
         'end_date',
+        'renewal_notice_sent_at',
         'insurer_id',
         'policy_no',
         'insured',
@@ -61,6 +62,7 @@ class Policy extends Model
         'status',
         'risk_details',
         'renewal_count',
+        'renewal_notices_sent', // Add this
          'paid_amount', 
         'balance',
         // Add cancellation fields
@@ -68,21 +70,31 @@ class Policy extends Model
         'cancellation_date',
         'status',
         'is_canceled',
+        'agent_id',          // 
+        'agent_commission',  // 
     ];
 
     // Specify the attributes that should be cast to native types
+    protected $dates = [
+        'start_date',
+        'end_date',
+        'renewal_notice_sent_at',
+    ];
+
     protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
         'document_description' => 'array',
         'documents' => 'array',
         'risk_details' => 'array',
+        'renewal_notices_sent' => 'array',
         // Add numeric casts for financial fields
         'excess' => 'float',
         'courtesy_car' => 'float',
         'ppl' => 'float',
         'road_rescue' => 'float',
         'other_charges' => 'float',
+        'start_date' => 'date',
+        'end_date' => 'date',
+        'renewal_notice_sent_at' => 'datetime',
         'gross_premium' => 'float',
         'net_premium' => 'float',
         'sum_insured' => 'float',
@@ -107,7 +119,52 @@ class Policy extends Model
     // A policy belongs to a customer.
     public function customer()
     {
-        return $this->belongsTo(Customer::class, 'customer_code', 'customer_code');
+        return $this->belongsTo(Customer::class);
+    }
+
+
+    /**
+     * Check if the policy has a total loss claim
+     */
+    public function hasTotalLossClaim()
+    {
+        if (!class_exists(Claim::class)) {
+            return false;
+        }
+        // Check both type_of_loss and status fields for total loss
+        return $this->claims()
+            ->where(function($query) {
+                $query->where('type_of_loss', 'total_loss')
+                      ->orWhere('type_of_loss', 'Total Loss')
+                      ->orWhere('status', 'Total Loss');
+            })
+            ->exists();
+    }
+
+    /**
+     * Mark that a renewal notice has been sent for a specific interval
+     *
+     * @param int $days
+     * @return void
+     */
+    public function markNoticeSent($days)
+    {
+        $this->renewal_notice_sent_at = now();
+        
+        // Track which intervals we've sent notices for
+        $sentNotices = $this->renewal_notices_sent ?? [];
+        $sentNotices[$days] = now()->toDateTimeString();
+        $this->renewal_notices_sent = $sentNotices;
+        
+        $this->save();
+    }
+
+    /**
+     * Relationship with claims
+     */
+    public function claims()
+    {
+        return $this->hasMany(Claim::class);
     }
 
     // A policy belongs to an insurer.
@@ -128,11 +185,18 @@ class Policy extends Model
         return $this->hasMany(Endorsement::class);
     }
 
-    // A policy can have many claims associated with it.
-    public function claims()
+    /**
+     * Check if a renewal notice for a specific interval has already been sent.
+     *
+     * @param int $days
+     * @return bool
+     */
+    public function hasBeenSentNoticeFor(int $days): bool
     {
-        return $this->hasMany(Claim::class);
+        $sentNotices = $this->renewal_notices_sent ?? [];
+        return isset($sentNotices[$days]);
     }
+
 
     // Relationship to renewals where this policy is the original
     public function renewalsAsOriginal()
@@ -262,5 +326,25 @@ class Policy extends Model
         }
 
         return $status;
+    }
+
+    /**
+     * Scope a query to only include policies expiring soon.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param int $days
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeExpiringSoon($query, $days = 30)
+    {
+        $startDate = Carbon::now();
+        $endDate = Carbon::now()->addDays($days);
+
+        return $query->whereBetween('end_date', [$startDate, $endDate]);
+    }
+
+    public function agent()
+    {
+        return $this->belongsTo(\App\Models\Agent::class, 'agent_id');
     }
 }

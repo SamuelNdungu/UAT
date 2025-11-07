@@ -94,6 +94,7 @@
                                 <th>Occupation</th>
                                 <th>Documents</th>
                                 <th>Status</th>
+                                <th>Agent</th> <!-- Added Agent column -->
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -119,6 +120,9 @@
                                 <td>{{ $customer->customer_type === 'Individual' ? $customer->occupation : $customer->industry_segment }}</td>
                                 <td>{{ $customer->documents }}</td>
                                 <td>{{ $customer->status == 1 ? 'Active' : 'Inactive' }}</td>
+                                <td>
+                                    {{ $customer->agent ? $customer->agent->name . ' (' . $customer->agent->agent_code . ')' : '-' }}
+                                </td>
                                 <td class="text-center" style="white-space: nowrap; position: sticky; right: 0; background-color: white; z-index: 100; padding: 5px; border-left: 1px solid #ddd;">
                                     <a href="{{ route('customers.show', $customer->id) }}" class="btn btn-info btn-sm" aria-label="View" title="View" style="padding: 1px 8px;">
                                         <i class="fas fa-eye" aria-hidden="true" style="font-size: 0.8rem;"></i>
@@ -128,6 +132,10 @@
                                     </a>
                                     <a href="{{ route('customers.statement', $customer->id) }}" class="btn btn-secondary btn-sm" aria-label="Statement" title="Statement" style="padding: 1px 8px;">
                                         <i class="fas fa-file-invoice" aria-hidden="true" style="font-size: 0.8rem;"></i>
+                                    </a> 
+                                    <a href="{{ route('customers.emailStatement', $customer->id) }}" class="btn btn-primary btn-sm" title="Send Statement via Email"
+                                       onclick="return confirm('Send customer statement to {{ addslashes($customer->email ?? $customer->customer_name) }}?');">
+                                        <i class="fas fa-envelope" style="font-size: 0.8rem;"></i>
                                     </a>
                                     <form action="{{ route('customers.destroy', $customer->id) }}" method="POST" style="display:inline;" onsubmit="return confirmDelete()">
                                         @csrf

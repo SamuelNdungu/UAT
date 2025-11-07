@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use App\Models\Customer;
 use App\Models\Policy;
 use App\Models\Payment;
+use App\Models\CompanyData;  
 use PDF;
 
 class CustomerStatementController extends Controller
@@ -24,6 +25,9 @@ class CustomerStatementController extends Controller
         bcscale(self::PRECISION); 
         
         $customer = Customer::findOrFail($id);
+
+        // Load company data - ADD THIS
+        $company = CompanyData::first();
 
         // Load policies
         $policies = Policy::with('policyType')->where(function($q) use ($customer) {
@@ -157,13 +161,14 @@ class CustomerStatementController extends Controller
         $startDate = $transactions->first() ? $transactions->first()->date->format('d-m-Y') : null;
         $endDate = $transactions->last() ? $transactions->last()->date->format('d-m-Y') : null;
 
-        // Prepare data for view
+        // Prepare data for view - ADD COMPANY TO THE DATA ARRAY
         $data = [
             'customer' => $customer,
             'transactions' => $transactions,
             'startDate' => $startDate,
             'endDate' => $endDate,
             'generatedAt' => Carbon::now()->format('d-m-Y H:i:s'),
+            'company' => $company, // ADD THIS LINE
         ];
 
         // Render PDF view and force download

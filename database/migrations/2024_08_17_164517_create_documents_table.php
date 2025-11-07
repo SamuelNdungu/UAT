@@ -11,17 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('documents', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('customer_id')->nullable(); // Nullable to allow different entities like policies/claims
-            $table->string('name');
-            $table->string('path');
-            $table->string('document_type'); // New column to store document type (customer, policy, claim, etc.)
-            $table->timestamps();
-        
-            // Foreign key constraint for customers
-            $table->foreign('customer_id')->references('id')->on('customers')->onDelete('cascade');
-        });
+        if (! Schema::hasTable('documents')) {
+            Schema::create('documents', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('customer_id')->nullable(); // Nullable to allow different entities like policies/claims
+                $table->string('name');
+                $table->string('path');
+                $table->string('document_type'); // New column to store document type (customer, policy, claim, etc.)
+                $table->timestamps();
+
+                // Foreign key constraint for customers
+                $table->foreign('customer_id')->references('id')->on('customers')->onDelete('cascade');
+            });
+        }
         
     }
 

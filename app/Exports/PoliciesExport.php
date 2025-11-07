@@ -49,7 +49,9 @@ class PoliciesExport implements FromCollection, WithHeadings, WithMapping, WithS
             'Gross Premium',
             'Net Premium',
             'Paid Amount',
-            'Balance', 
+            'Balance',
+            'Agent Name',
+            'Agent Commision' 
         ];
     }
 
@@ -85,6 +87,8 @@ class PoliciesExport implements FromCollection, WithHeadings, WithMapping, WithS
             number_format($policy->net_premium, 2),     
             number_format($policy->paid_amount, 2),    
             number_format($policy->balance, 2),        
+            $policy->agent ? $policy->agent->name : '',
+            $policy->agent_commission,
         ];
     }
 

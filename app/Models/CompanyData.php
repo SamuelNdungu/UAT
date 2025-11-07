@@ -13,8 +13,16 @@ class CompanyData extends Model
         'phone',
         'website',
         'address',
-        'logo_path'
+        'logo_path' // This matches your database column
     ];
 
     public $timestamps = true;
+
+    public function getLogoUrl()
+    {
+        if ($this->logo_path) { // Use logo_path to match your database
+            return asset('storage/' . $this->logo_path);
+        }
+        return null;
+    }
 }

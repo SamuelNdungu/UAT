@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 
-class RevertDocumentsColumnTypeInCustomersTable extends Migration
+class UpdateDocumentsColumnTypeInCustomersTable extends Migration
 {
     public function up()
     {

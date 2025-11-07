@@ -4,30 +4,74 @@ namespace App\Http\Controllers;
 
 use App\Models\Lead;
 use App\Models\Customer;
+use App\Enums\CustomerStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use App\Exports\LeadsExport;
 use Maatwebsite\Excel\Facades\Excel;
 use PDF;
 
 class LeadsController extends Controller
 {
+    // Method to generate a unique customer code
+    private function generateUniqueCustomerCode()
+    {
+        $prefix = 'CUS-';
+        $pad = 5;
+        $max = 0;
 
-       // Method to generate a unique customer code
-private function generateUniqueCustomerCode()
-{
-    // Get the maximum numeric part of the existing customer codes
-    $maxNumber = Customer::max(DB::raw('CAST(SUBSTRING(customer_code, 5) AS INTEGER)'));
+        // Scan customer_code values that start with the prefix in chunks to avoid heavy memory usage
+        DB::table('customers')
+            ->select('customer_code')
+            ->where('customer_code', 'like', $prefix . '%')
+            ->orderBy('id')
+            ->chunkById(500, function ($rows) use (&$max, $prefix) {
+                foreach ($rows as $row) {
+                    $code = (string) ($row->customer_code ?? '');
+                    if ($code === '') {
+                        continue;
+                    }
 
-    // Increment to generate thse new customer code
-    $newNumber = $maxNumber ? $maxNumber + 1 : 100; // Start at 100 if no customer codes exist
+                    // remove prefix if present
+                    if (Str::startsWith($code, $prefix)) {
+                        $suffix = substr($code, strlen($prefix));
+                    } else {
+                        $suffix = $code;
+                    }
 
-    // Format the new customer code
-    return sprintf('CUS-%05d', $newNumber);
-}
+                    // Extract the last contiguous group of digits (ignore malformed parts)
+                    if (preg_match('/(\d+)(?!.*\d)/', $suffix, $m)) {
+                        $num = (int)$m[1];
+                        if ($num > $max) {
+                            $max = $num;
+                        }
+                        continue;
+                    }
+
+                    // If no contiguous group at end, try to find any digits
+                    if (preg_match_all('/\d+/', $suffix, $matches)) {
+                        $lastMatch = end($matches[0]);
+                        $num = (int)$lastMatch;
+                        if ($num > $max) {
+                            $max = $num;
+                        }
+                    }
+                }
+            });
+
+        if ($max > 0) {
+            $next = $max + 1;
+            return sprintf($prefix . '%0' . $pad . 'd', $next);
+        }
+
+        // Fallback when no numeric codes found: use prefix + random token
+        return $prefix . strtoupper(Str::random(6));
+    }
+
     public function index(Request $request)
     {
         $query = Lead::query();
@@ -112,8 +156,104 @@ private function generateUniqueCustomerCode()
                 ->withInput();
         }
         $customerCode = $this->generateUniqueCustomerCode();
-        // Create the lead
-        $lead = new Lead($request->all());
+        // Create the lead but only set attributes for columns that actually exist in the DB.
+        // This avoids QueryException when migrations/schema differ between environments.
+        $lead = new Lead();
+
+        // Conditionally map request fields to actual DB columns
+        if (Schema::hasColumn('leads', 'lead_type')) {
+            $lead->lead_type = $request->lead_type;
+        }
+
+        if (Schema::hasColumn('leads', 'corporate_name')) {
+            $lead->corporate_name = $request->corporate_name;
+        } elseif (Schema::hasColumn('leads', 'company_name')) {
+            // older schema used company_name
+            $lead->company_name = $request->corporate_name;
+        }
+
+        if (Schema::hasColumn('leads', 'contact_name')) {
+            $lead->contact_name = $request->contact_name;
+        }
+
+        if (Schema::hasColumn('leads', 'first_name')) {
+            $lead->first_name = $request->first_name;
+        }
+
+        if (Schema::hasColumn('leads', 'last_name')) {
+            $lead->last_name = $request->last_name;
+        }
+
+        // phone/email column may be named differently across migrations
+        if (Schema::hasColumn('leads', 'mobile')) {
+            $lead->mobile = $request->mobile;
+        }
+
+        if (Schema::hasColumn('leads', 'phone')) {
+            $lead->phone = $request->mobile;
+        }
+
+        if (Schema::hasColumn('leads', 'email')) {
+            $lead->email = $request->email;
+        } elseif (Schema::hasColumn('leads', 'email_address')) {
+            $lead->email_address = $request->email;
+        }
+
+        if (Schema::hasColumn('leads', 'policy_type')) {
+            $lead->policy_type = $request->policy_type;
+        }
+
+        if (Schema::hasColumn('leads', 'estimated_premium')) {
+            $lead->estimated_premium = $request->estimated_premium ?? null;
+        }
+
+        if (Schema::hasColumn('leads', 'follow_up_date')) {
+            $lead->follow_up_date = $request->follow_up_date;
+        }
+
+        if (Schema::hasColumn('leads', 'upload')) {
+            // We'll set upload later after storing files
+        }
+
+        if (Schema::hasColumn('leads', 'lead_source')) {
+            $lead->lead_source = $request->lead_source;
+        }
+
+        if (Schema::hasColumn('leads', 'notes')) {
+            $lead->notes = $request->notes;
+        }
+
+        if (Schema::hasColumn('leads', 'deal_size')) {
+            $lead->deal_size = $request->deal_size;
+        }
+
+        if (Schema::hasColumn('leads', 'probability')) {
+            $lead->probability = $request->probability;
+        }
+
+        if (Schema::hasColumn('leads', 'weighted_revenue_forecast')) {
+            $lead->weighted_revenue_forecast = $request->weighted_revenue_forecast;
+        }
+
+        if (Schema::hasColumn('leads', 'deal_stage')) {
+            $lead->deal_stage = $request->deal_stage;
+        }
+
+        if (Schema::hasColumn('leads', 'deal_status')) {
+            $lead->deal_status = $request->deal_status;
+        }
+
+        if (Schema::hasColumn('leads', 'date_initiated')) {
+            $lead->date_initiated = $request->date_initiated;
+        }
+
+        if (Schema::hasColumn('leads', 'closing_date')) {
+            $lead->closing_date = $request->closing_date;
+        }
+
+        if (Schema::hasColumn('leads', 'next_action')) {
+            $lead->next_action = $request->next_action;
+        }
 
 
 
@@ -127,7 +267,10 @@ private function generateUniqueCustomerCode()
             'contact_person' => $request->lead_type === 'Corporate' ? $request->contact_name : null,
             'email' => $request->email,
             'phone' => $request->mobile,
-            'status' => 'Lead',
+            // The customers table stores a boolean/integer status (active/inactive).
+            // Use `true` to mark a newly created customer as active by default.
+            // Use enum to indicate active customer
+            'status' => CustomerStatus::ACTIVE,
             'user_id' => auth()->id()
         ];
 

@@ -29,7 +29,6 @@
         font-size: 1.25rem;
     }
 </style>
-
 <div class="container">
     <h1 class="my-4">Create Policy</h1>
 
@@ -86,7 +85,7 @@
                 <input type="hidden" id="customer_code" name="customer_code" value="{{ old('customer_code') }}">
             </div>
 
-            <div class="col-md-6 form-group">
+            <div class="col-md-5 form-group">
                 <label for="customer_name_display">Customer Name <span class="text-danger">*</span></label>
                 <input type="text" id="customer_name_display" class="form-control @error('customer_name') is-invalid @enderror" readonly value="{{ old('customer_name') }}">
                 <input type="hidden" id="customer_name" name="customer_name" value="{{ old('customer_name') }}">
@@ -94,12 +93,17 @@
                     <div class="invalid-feedback">{{ $message }}</div>
                 @enderror
             </div>
+
+            <!-- <div class="col-md-2 form-group">
+                <label for="agent_name_display">Agent Name</label>
+                <input type="text" id="agent_name_display" class="form-control" readonly value="">
+            </div>-->
         </div>
 
         <!-- Policy Details Section -->
         <div class="group-heading mt-3">Policy Details</div>
         <div class="row mt-3">
-            <div class="col-md-4 form-group">
+            <div class="col-md-3 form-group">
                 <label for="policy_type_id">Policy Type <span class="text-danger">*</span></label>
                 <select id="policy_type_id" name="policy_type_id" class="form-control @error('policy_type_id') is-invalid @enderror" onchange="togglePolicyTypeFields()">
                     <option value="">Select</option>
@@ -118,7 +122,7 @@
                 @enderror
             </div>
 
-            <div class="col-md-4 form-group">
+            <div class="col-md-2 form-group">
                 <label for="coverage">Coverage</label>
                 <select id="coverage" name="coverage" class="form-control">
                     <option value="">Select</option>
@@ -139,7 +143,23 @@
                     <div class="invalid-feedback">{{ $message }}</div>
                 @enderror
             </div>
+
+
+           <!-- <div class="col-md-3 form-group">
+                        <label for="agent_id">Agent / Broker</label>
+                <select id="agent_id" name="agent_id" class="form-control @error('agent_id') is-invalid @enderror">
+                            <option value="">(Agent will be set automatically upon customer selection)</option>
+                            @foreach($agents as $id => $name)
+                                <option value="{{ $id }}" {{ old('agent_id') == $id ? 'selected' : '' }}>{{ $name }}</option>
+                            @endforeach
+                        </select>
+                        @error('agent_id')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+             </div>-->
+
         </div>
+
 
         <div class="row mt-3">
             <div class="col-md-3 form-group">
@@ -404,10 +424,10 @@
                         <tr id="documentRowTemplate" style="display: none;">
                             <td>1</td>
                             <td>
-                                <input type="text" name="document_description[]" class="form-control" placeholder="Enter description">
+                                <input type="text" name="document_description[]" class="form-control" placeholder="Enter description" value="">
                             </td>
                             <td>
-                                <input type="file" name="upload_file[]" class="form-control">
+                                <input type="file" name="upload_file[]" class="form-control" accept=".jpg,.jpeg,.png,.pdf,.xlsx,.docx,.txt">
                             </td>
                         </tr>
                         <!-- Additional rows will be added here -->
@@ -419,7 +439,7 @@
                                         <input type="text" name="document_description[]" class="form-control" placeholder="Enter description" value="{{ $description }}">
                                     </td>
                                     <td>
-                                        <input type="file" name="upload_file[]" class="form-control">
+                                        <input type="file" name="upload_file[]" class="form-control" accept=".jpg,.jpeg,.png,.pdf,.xlsx,.docx,.txt">
                                     </td>
                                 </tr>
                             @endforeach
@@ -454,8 +474,40 @@
         // Update the row index
         newRow.children[0].textContent = newRowIndex;
 
+        // Clear any input values in the cloned row
+        const inputs = newRow.querySelectorAll('input');
+        inputs.forEach(function(input) {
+            if (input.type === 'file') {
+                // Ensure accept attribute is present on file inputs
+                input.accept = '.jpg,.jpeg,.png,.pdf,.xlsx,.docx,.txt';
+                input.value = ''; // clear file selection
+            } else {
+                input.value = '';
+            }
+        });
+
         // Add the new row to the table
         table.tBodies[0].appendChild(newRow);
+    }
+
+    // New helper: validate uploaded file extensions before submitting
+    function validateUploadedFiles() {
+        const allowed = ['jpg','jpeg','png','pdf','xlsx','docx','txt'];
+        const fileInputs = Array.from(document.querySelectorAll('input[name="upload_file[]"]'));
+        for (let i = 0; i < fileInputs.length; i++) {
+            const fi = fileInputs[i];
+            if (fi.files && fi.files.length > 0) {
+                const fileName = fi.files[0].name;
+                const parts = fileName.split('.');
+                const ext = parts.length > 1 ? parts.pop().toLowerCase() : '';
+                if (!allowed.includes(ext)) {
+                    const rowIndex = i + 1; // human-friendly index
+                    alert(`Document #${rowIndex}: file type .${ext || '(no extension)'} is not allowed. Allowed: ${allowed.join(', ')}`);
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
   // Load cover details based on selected policy type
@@ -786,14 +838,60 @@ function loadCoverDetails() {
         });
     });
 
-    function selectCustomer(code, name) {
-        $('#customer_code_display').val(code);
-        $('#customer_code').val(code);
-        $('#customer_name_display').val(name);
-        $('#customer_name').val(name);
-        $('#results').html('');
+    function fetchAndSetCustomerAgent(customerCode) {
+    const agentNameInput = document.getElementById('agent_name_display');
+    const agentSelect = document.getElementById('agent_id');
+    // Use a custom endpoint to fetch agent info by customer_code
+    const url = '/api/customer-agent?customer_code=' + encodeURIComponent(customerCode);
+
+    if (!customerCode) {
+        if (agentNameInput) agentNameInput.value = '';
+        if (agentSelect) agentSelect.value = '';
+        return;
     }
 
+    fetch(url)
+    .then(response => response.json())
+    .then(data => {
+        // Defensive: handle both agent_name and agent object
+        if (data.agent_name) {
+            agentNameInput.value = data.agent_name;
+        } else if (data.agent && data.agent.name) {
+            agentNameInput.value = data.agent.name;
+        } else {
+            agentNameInput.value = '';
+        }
+        if (data.agent_id && agentSelect) {
+            agentSelect.value = data.agent_id;
+        }
+    })
+    .catch(() => {
+        if (agentNameInput) agentNameInput.value = '';
+    });
+}
+
+function selectCustomer(code, name) {
+    $('#customer_code_display').val(code);
+    $('#customer_code').val(code);
+    $('#customer_name_display').val(name);
+    $('#customer_name').val(name);
+    $('#results').html('');
+    // Fetch agent info when customer is selected
+    fetchAndSetCustomerAgent(code);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const customerCodeInput = document.getElementById('customer_code');
+    if (customerCodeInput) {
+        customerCodeInput.addEventListener('change', function() {
+            fetchAndSetCustomerAgent(this.value);
+        });
+        // Initial fetch if value is present
+        if (customerCodeInput.value) {
+            fetchAndSetCustomerAgent(customerCodeInput.value);
+        }
+    }
+});
     // Load vehicle models based on selected vehicle type
     const availableModels = @json($vehicleModels);
 
@@ -1016,6 +1114,13 @@ function loadCoverDetails() {
             var btn = form.querySelector('button[type="submit"]');
 
             try {
+                // Validate uploaded files first
+                if (!validateUploadedFiles()) {
+                    if (btn) btn.disabled = false;
+                    e.preventDefault();
+                    return;
+                }
+
                 // Read date values
                 var startStr = document.getElementById('start_date').value;
                 var endStr = document.getElementById('end_date').value;
@@ -1090,40 +1195,77 @@ function loadCoverDetails() {
         });
     });
 </script>
-
 @push('scripts')
 <script>
-    // Function to calculate the end date based on start date and days
+    // ----------------------------------------------------------------------
+    // 1. DATE CALCULATION LOGIC
+    // ----------------------------------------------------------------------
     function calculateEndDate() {
         const startDateInput = document.getElementById('start_date');
         const daysInput = document.getElementById('days');
         const endDateInput = document.getElementById('end_date');
 
-        const startDateValue = startDateInput.value;
-        const daysValue = parseInt(daysInput.value);
+        const startDateValue = startDateInput ? startDateInput.value : null;
+        const daysValue = parseInt(daysInput ? daysInput.value : 0);
 
         if (startDateValue && !isNaN(daysValue) && daysValue >= 0) {
-            // Use date manipulation for accurate calculation
+            // Use a copy of the start date to avoid modifying the original date object
             let date = new Date(startDateValue);
             
-            // Add 'days' plus one to the start date to get the end date.
-            // A 365-day policy (days=364) means the end date is 364 days AFTER the start date.
-            // We use 364 days here (the value the user entered in the input).
+            // The policy duration is 'daysValue' (e.g., 365 days).
+            // A 1-day policy (days=1) ends 1 day after the start date. 
+            // setDate adds the number of days specified.
             date.setDate(date.getDate() + daysValue); 
 
             // Format the calculated date as YYYY-MM-DD
             const year = date.getFullYear();
+            // Note: getMonth() is 0-indexed, so add 1
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
 
             endDateInput.value = `${year}-${month}-${day}`;
-        } else {
+        } else if (endDateInput) {
             endDateInput.value = '';
         }
     }
 
-    // Attach the function to input change events
+    // ----------------------------------------------------------------------
+    // 2. CUSTOMER AGENT FETCH LOGIC
+    // ----------------------------------------------------------------------
+    function fetchAndSetCustomerAgent(customerCode) {
+        const agentNameInput = document.getElementById('agent_name_display');
+        const agentSelect = document.getElementById('agent_id');
+        // Use a custom endpoint to fetch agent info by customer_code
+        const url = '/api/customer-agent?customer_code=' + encodeURIComponent(customerCode);
+
+        if (!customerCode) {
+            if (agentNameInput) agentNameInput.value = '';
+            if (agentSelect) agentSelect.value = '';
+            return;
+        }
+
+        fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.agent_name) {
+                agentNameInput.value = data.agent_name;
+            } else {
+                agentNameInput.value = '';
+            }
+            if (data.agent_id && agentSelect) {
+                agentSelect.value = data.agent_id;
+            }
+        })
+        .catch(() => {
+            if (agentNameInput) agentNameInput.value = '';
+        });
+    }
+
+    // ----------------------------------------------------------------------
+    // 3. EVENT LISTENERS
+    // ----------------------------------------------------------------------
     document.addEventListener('DOMContentLoaded', function() {
+        // Date Listeners
         const startDateInput = document.getElementById('start_date');
         const daysInput = document.getElementById('days');
         
@@ -1132,6 +1274,16 @@ function loadCoverDetails() {
         
         // Run calculation once on page load to set the default end date
         calculateEndDate(); 
+
+        // Customer Agent Listener
+        const customerCodeInput = document.getElementById('customer_code');
+        
+        if (customerCodeInput) {
+            customerCodeInput.addEventListener('change', function() {
+                // Trigger the fetch when the customer code changes
+                fetchAndSetCustomerAgent(this.value);
+            });
+        }
     });
 </script>
 @endpush

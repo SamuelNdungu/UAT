@@ -1,38 +1,66 @@
 @php
-    // Determine a canonical company logo URL. Preference order:
-    // 1. CompanyData.logo_path on the 'public' disk (uploaded via settings)
-    // 2. A handful of common public image paths under public/
-    // If none found, $companyLogoUrl will be null and callers can fallback to asset('img/logo.png')
-    $companyLogoUrl = null;
-    try {
-        if (class_exists('\App\\Models\\CompanyData')) {
-            $company = \App\Models\CompanyData::first();
-            $storageLogo = $company->logo_path ?? null;
-            if ($storageLogo && \Storage::disk('public')->exists($storageLogo)) {
-                $companyLogoUrl = asset('storage/' . ltrim($storageLogo, '/'));
-            }
-        }
-    } catch (\Throwable $e) {
-        // ignore and fall back to file checks
-        $companyLogoUrl = null;
-    }
+    // --- Setup Variables ---
+    $asData = $as_data ?? false;
+    $maxWidth = $max_width ?? 220;
+    $logoHtml = null;
 
-    if (! $companyLogoUrl) {
-        $possibleLogos = [
-            'storage/company/logo.png',
-            'storage/company/logo.jpg',
-            'assets/img/company-logo.png',
-            'assets/img/company-logo.jpg',
-            'assets/img/logo.png',
-            'assets/img/logo.jpg',
-            'img/logo.png',
-            'img/company-logo.png',
-        ];
-        foreach ($possibleLogos as $p) {
-            if (file_exists(public_path($p))) {
-                $companyLogoUrl = asset($p);
-                break;
+    // --- 1. Load Company Data ---
+    $company = $company ?? \App\Models\CompanyData::first();
+    
+    if (!$company) {
+        // No company found - use text fallback
+        $logoHtml = '<div style="font-size:16px; font-weight:700; color:#222;">' . config('app.name', 'Company') . '</div>';
+    } else {
+        $storageLogoPath = $company->logo_path;
+        
+        // --- 2. Check for logo files ---
+        $storageLogoExists = false;
+        $publicLogoExists = file_exists(public_path('img/logo.png'));
+        
+        if ($storageLogoPath) {
+            $normalizedPath = ltrim($storageLogoPath, '/\\');
+            $storageLogoExists = \Storage::disk('public')->exists($normalizedPath);
+        }
+
+        // --- 3. Rendering Logic ---
+        if ($storageLogoExists && $asData) {
+            // PDF MODE: Use storage logo as base64
+            try {
+                $fileContents = \Storage::disk('public')->get($normalizedPath);
+                $mimeType = \Storage::disk('public')->mimeType($normalizedPath);
+                
+                // Validate mime type
+                if (empty($mimeType) || $mimeType === 'application/octet-stream') {
+                    $extension = pathinfo($normalizedPath, PATHINFO_EXTENSION);
+                    $mimeType = $extension === 'svg' ? 'image/svg+xml' : 'image/png';
+                }
+                
+                $base64 = base64_encode($fileContents);
+                $logoHtml = '<img src="data:' . $mimeType . ';base64,' . $base64 . '" alt="' . ($company->company_name ?? 'Company Logo') . '" style="max-width:' . $maxWidth . 'px; height:auto; display:block;">';
+            } catch (Exception $e) {
+                // Fall through to public logo or text
+                $storageLogoExists = false;
             }
+        } elseif ($storageLogoExists && !$asData) {
+            // WEB MODE: Use storage URL
+            $logoUrl = \Storage::url($normalizedPath);
+            $logoHtml = '<img src="' . $logoUrl . '" alt="' . ($company->company_name ?? 'Company Logo') . '" style="max-width:' . $maxWidth . 'px; height:auto; display:block;">';
+        } elseif ($publicLogoExists && $asData) {
+            // PDF MODE: Use public logo as base64
+            $publicLogoPath = public_path('img/logo.png');
+            $imgData = file_get_contents($publicLogoPath);
+            $base64 = base64_encode($imgData);
+            $logoHtml = '<img src="data:image/png;base64,' . $base64 . '" alt="' . ($company->company_name ?? 'Company Logo') . '" style="max-width:' . $maxWidth . 'px; height:auto; display:block;">';
+        } elseif ($publicLogoExists && !$asData) {
+            // WEB MODE: Use public asset
+            $logoHtml = '<img src="' . asset('img/logo.png') . '" alt="' . ($company->company_name ?? 'Company Logo') . '" style="max-width:' . $maxWidth . 'px; height:auto; display:block;">';
+        } else {
+            // Text fallback
+            $logoHtml = '<div style="font-size:16px; font-weight:700; color:#222;">' . ($company->company_name ?? config('app.name', 'Company')) . '</div>';
         }
     }
 @endphp
+
+<div style="text-align:{{ $align ?? 'left' }};">
+    {!! $logoHtml !!}
+</div>

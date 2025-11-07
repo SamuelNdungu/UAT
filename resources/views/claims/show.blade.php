@@ -127,27 +127,8 @@
                 <p class="form-control-plaintext">{{ $claim->loss_details }}</p>
             </div>
             
-            <!-- Uploaded Files Section (legacy single file) -->
-            <div class="group-heading">Uploaded Files</div>
-            <div class="row">
-                @if($claim->documents && $claim->documents->count() > 0)
-                    @foreach($claim->documents as $doc)
-                        @php
-                            $docUrl = route('claims.attachment', ['claim' => $claim->id, 'idx' => basename($doc->path)]);
-                        @endphp
-                        <div class="me-3 mb-2">
-                            <a href="{{ $docUrl }}" target="_blank">{{ $doc->original_name ?? basename($doc->path) }}</a>
-                        </div>
-                    @endforeach
-                @elseif($claim->upload_file)
-                    @php $legacyUrl = route('claims.attachment', ['claim' => $claim->id, 'idx' => 'upload_file']); @endphp
-                    <a href="{{ $legacyUrl }}" target="_blank">View Document</a>
-                @else
-                    N/A
-                @endif
-            </div>
-
- 
+         
+            
             <!-- Event Section -->
             <div class="group-heading">Events</div>
             <div id="events">
@@ -181,26 +162,36 @@
                             $name = $doc->original_name ?? basename($path ?? '');
                             $viewUrl = $path ? route('claims.attachment', ['claim' => $claim->id, 'idx' => basename($path)]) : null;
                             $ext = $path ? strtolower(pathinfo($path, PATHINFO_EXTENSION)) : null;
+                            $fileExists = $path && \Illuminate\Support\Facades\Storage::disk('public')->exists($path);
                         @endphp
 
                         <div class="card text-center" style="width:120px;">
-                            @if($viewUrl && in_array($ext, ['jpg','jpeg','png','gif']))
-                                @php $thumbUrl = $viewUrl . '?thumb=1'; @endphp
-                                <a href="{{ $viewUrl }}" target="_blank" class="d-block" style="height:80px; overflow:hidden;">
-                                    <img src="{{ $thumbUrl }}" alt="{{ $name }}" style="width:100%; height:80px; object-fit:cover;">
-                                </a>
-                            @elseif($viewUrl && $ext === 'pdf')
-                                <a href="{{ $viewUrl }}" target="_blank" class="d-flex align-items-center justify-content-center" style="height:80px;">
-                                    <i class="fas fa-file-pdf fa-2x text-danger"></i>
-                                </a>
+                            @if($fileExists)
+                                @if($viewUrl && in_array($ext, ['jpg','jpeg','png','gif']))
+                                    @php $thumbUrl = $viewUrl . '?thumb=1'; @endphp
+                                    <a href="{{ $viewUrl }}" target="_blank" class="d-block" style="height:80px; overflow:hidden;">
+                                        <img src="{{ $thumbUrl }}" alt="{{ $name }}" style="width:100%; height:80px; object-fit:cover;">
+                                    </a>
+                                @elseif($viewUrl && $ext === 'pdf')
+                                    <a href="{{ $viewUrl }}" target="_blank" class="d-flex align-items-center justify-content-center" style="height:80px;">
+                                        <i class="fas fa-file-pdf fa-2x text-danger"></i>
+                                    </a>
+                                @else
+                                    <a href="{{ $viewUrl ?? '#' }}" target="_blank" class="d-flex align-items-center justify-content-center" style="height:80px;">
+                                        <i class="fas fa-file fa-2x"></i>
+                                    </a>
+                                @endif
+                                <div class="card-body p-2">
+                                    <a href="{{ $viewUrl ?? '#' }}" download class="small text-truncate d-block">{{ \Illuminate\Support\Str::limit($name, 24) }}</a>
+                                </div>
                             @else
-                                <a href="{{ $viewUrl ?? '#' }}" target="_blank" class="d-flex align-items-center justify-content-center" style="height:80px;">
-                                    <i class="fas fa-file fa-2x"></i>
-                                </a>
+                                <div class="d-flex align-items-center justify-content-center" style="height:80px;">
+                                    <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                                </div>
+                                <div class="card-body p-2">
+                                    <span class="small text-danger">File not found</span>
+                                </div>
                             @endif
-                            <div class="card-body p-2">
-                                <a href="{{ $viewUrl ?? '#' }}" download class="small text-truncate d-block">{{ \Illuminate\Support\Str::limit($name, 24) }}</a>
-                            </div>
                         </div>
                     @endforeach
                 </div>
@@ -214,26 +205,36 @@
                             $name = $att['original_name'] ?? ($att['name'] ?? basename($path ?? ''));
                             $viewUrl = $path ? route('claims.attachment', ['claim' => $claim->id, 'idx' => $idx]) : null;
                             $ext = $path ? strtolower(pathinfo($path, PATHINFO_EXTENSION)) : null;
+                            $fileExists = $path && \Illuminate\Support\Facades\Storage::disk('public')->exists($path);
                         @endphp
 
                         <div class="card text-center" style="width:120px;">
-                            @if($viewUrl && in_array($ext, ['jpg','jpeg','png','gif']))
-                                @php $thumbUrl = $viewUrl . '?thumb=1'; @endphp
-                                <a href="{{ $viewUrl }}" target="_blank" class="d-block" style="height:80px; overflow:hidden;">
-                                    <img src="{{ $thumbUrl }}" alt="{{ $name }}" style="width:100%; height:80px; object-fit:cover;">
-                                </a>
-                            @elseif($viewUrl && $ext === 'pdf')
-                                <a href="{{ $viewUrl }}" target="_blank" class="d-flex align-items-center justify-content-center" style="height:80px;">
-                                    <i class="fas fa-file-pdf fa-2x text-danger"></i>
-                                </a>
+                            @if($fileExists)
+                                @if($viewUrl && in_array($ext, ['jpg','jpeg','png','gif']))
+                                    @php $thumbUrl = $viewUrl . '?thumb=1'; @endphp
+                                    <a href="{{ $viewUrl }}" target="_blank" class="d-block" style="height:80px; overflow:hidden;">
+                                        <img src="{{ $thumbUrl }}" alt="{{ $name }}" style="width:100%; height:80px; object-fit:cover;">
+                                    </a>
+                                @elseif($viewUrl && $ext === 'pdf')
+                                    <a href="{{ $viewUrl }}" target="_blank" class="d-flex align-items-center justify-content-center" style="height:80px;">
+                                        <i class="fas fa-file-pdf fa-2x text-danger"></i>
+                                    </a>
+                                @else
+                                    <a href="{{ $viewUrl ?? '#' }}" target="_blank" class="d-flex align-items-center justify-content-center" style="height:80px;">
+                                        <i class="fas fa-file fa-2x"></i>
+                                    </a>
+                                @endif
+                                <div class="card-body p-2">
+                                    <a href="{{ $viewUrl ?? '#' }}" download class="small text-truncate d-block">{{ \Illuminate\Support\Str::limit($name, 24) }}</a>
+                                </div>
                             @else
-                                <a href="{{ $viewUrl ?? '#' }}" target="_blank" class="d-flex align-items-center justify-content-center" style="height:80px;">
-                                    <i class="fas fa-file fa-2x"></i>
-                                </a>
+                                <div class="d-flex align-items-center justify-content-center" style="height:80px;">
+                                    <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                                </div>
+                                <div class="card-body p-2">
+                                    <span class="small text-danger">File not found</span>
+                                </div>
                             @endif
-                            <div class="card-body p-2">
-                                <a href="{{ $viewUrl ?? '#' }}" download class="small text-truncate d-block">{{ \Illuminate\Support\Str::limit($name, 24) }}</a>
-                            </div>
                         </div>
                     @endforeach
                 </div>

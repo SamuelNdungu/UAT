@@ -30,10 +30,12 @@ class StoreCustomerRequest extends FormRequest
             'contact_person' => 'nullable|string',
             'designation' => 'nullable|string',
             'industry_class' => 'nullable|string',
-            'industry_segment' => 'nullable|string',
-            'documents' => 'nullable|file|mimes:pdf,doc,docx,txt|max:2048',
+            'industry_segment' => 'nullable|string', 
             'notes' => 'nullable|string',
-            'status' => 'boolean', // Ensuring it's a boolean
+            'status' => 'boolean', 
+            'agent_id' => ['nullable', 'exists:agents,id'],
+            'document_description.*' => 'nullable|string|max:255',
+            'upload_file.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf,doc,docx,xlsx|max:5120',
         ];
 
         // Additional validation for Individual customers

@@ -58,7 +58,7 @@ class UpdateCustomerRequest extends FormRequest
             'id_number'     => ['nullable', 'string', Rule::unique('customers', 'id_number')->ignore($customer_id)],
 
             // Status: Required, and must be one of the expected values.
-            'status'        => ['required', 'in:1,0,Blacklisted'], 
+            'status'        => ['sometimes', 'in:0,1'], 
 
             // =========================================================================
             // STANDARD FIELDS
@@ -79,6 +79,7 @@ class UpdateCustomerRequest extends FormRequest
             'country'           => ['nullable', 'string', 'max:100'],
             'documents.*'       => ['nullable', 'file', 'mimes:pdf,doc,docx,txt,jpg,jpeg,png', 'max:2048'],
             'notes'             => ['nullable', 'string'],
+            'agent_id'          => ['nullable', 'exists:agents,id'],
         ];
 
         // =========================================================================

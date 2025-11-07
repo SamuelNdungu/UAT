@@ -214,11 +214,14 @@
              
         </div>
         <div class="detail-list">
-<div class="detail-item">
+            <div class="detail-item">
                 <div class="detail-label">Policy No</div>
                 <div class="detail-value">{{ $policy->policy_no }}</div>
             </div>
-
+            <div class="detail-item">
+                <div class="detail-label">Policy Type</div>
+                <div class="detail-value">{{ $policy->policy_type_name ?? '-' }}</div>
+            </div>
             <div class="detail-item">
                 <div class="detail-label">Policy Period</div>
                 <div class="detail-value">
@@ -240,24 +243,31 @@
 
     {{-- Vehicle / Description (Conditional Full-width) --}}
     @php
-        // Check if any vehicle data exists to display the card
-        $hasVehicleData = $policy->reg_no || $policy->make || $policy->model;
+        // Define the Motor Policy Type IDs as requested
+        $motorPolicyIds = ['35', '36', '37'];
+        // Check if the current policy's ID is in the motor policy IDs array
+        // Cast to string to ensure safe comparison with the array of string IDs
+        $isMotorPolicy = in_array((string) $policy->policy_type_id, $motorPolicyIds);
     @endphp
 
-    <div id="vehicle-card" class="card-modern" style="display:{{ $hasVehicleData ? 'block' : 'none' }}">
-        <div class="section-header-modern"><div class="section-title">Vehicle Details</div></div>
-        <div class="detail-list">
-            <div class="detail-item"><div class="detail-label">Registration No:</div><div class="detail-value">{{ $policy->reg_no }}</div></div>
-            <div class="detail-item"><div class="detail-label">Make / Model:</div><div class="detail-value">{{ $policy->make }} / {{ $policy->model }}</div></div>
-            <div class="detail-item"><div class="detail-label">Y.O.M / CC:</div><div class="detail-value">{{ $policy->yom }} / {{ $policy->cc }}</div></div>
-            <div class="detail-item"><div class="detail-label">Chassis / Engine:</div><div class="detail-value">{{ $policy->chassisno }} / {{ $policy->engine_no }}</div></div>
+    @if ($isMotorPolicy)
+        {{-- Display Vehicle Card --}}
+        <div id="vehicle-card" class="card-modern">
+            <div class="section-header-modern"><div class="section-title">Vehicle Details</div></div>
+            <div class="detail-list">
+                <div class="detail-item"><div class="detail-label">Registration No:</div><div class="detail-value">{{ $policy->reg_no }}</div></div>
+                <div class="detail-item"><div class="detail-label">Make / Model:</div><div class="detail-value">{{ $policy->make }} / {{ $policy->model }}</div></div>
+                <div class="detail-item"><div class="detail-label">Y.O.M / CC:</div><div class="detail-value">{{ $policy->yom }} / {{ $policy->cc }}</div></div>
+                <div class="detail-item"><div class="detail-label">Chassis / Engine:</div><div class="detail-value">{{ $policy->chassisno }} / {{ $policy->engine_no }}</div></div>
+            </div>
         </div>
-    </div>
-
-    <div id="description-card" class="card-modern" style="display:{{ $hasVehicleData ? 'none' : 'block' }}">
-        <div class="section-header-modern"><div class="section-title">Description</div></div>
-        <div class="preserve-formatting">{{ $policy->description }}</div>
-    </div>
+    @else
+        {{-- Display Description Card --}}
+        <div id="description-card" class="card-modern">
+            <div class="section-header-modern"><div class="section-title">Description</div></div>
+            <div class="preserve-formatting">{{ $policy->description }}</div>
+        </div>
+    @endif
 
     {{-- FINANCIAL SECTION - IMPROVED LAYOUT --}}
     <div class="card-modern">
@@ -475,17 +485,24 @@
 
             {{-- Renew (icon-only) --}}
             <a href="{{ route('renewals.renew', $policy->id) }}" class="btn btn-outline-warning d-flex align-items-center" title="Create renewal" aria-label="Create renewal">
-                <i class="fas fa-sync-alt"></i>
+                <i class="fas fa-sync-alt"></i>Renew
             </a>
         @endif
 
         {{-- Print and history always available --}}
-        <a href="{{ route('policies.printDebitNote', $policy->id) }}" class="btn btn-success d-flex align-items-center" target="_blank" title="Print debit note" aria-label="Print debit note">
-            <i class="fas fa-file-invoice me-2"></i> Print Debit Note
-        </a>
+        <div class="d-flex gap-2">
+            {{-- Print Invoice button (added) --}}
+            <a href="{{ route('policies.printInvoice', $policy->id) }}" class="btn btn-outline-primary" target="_blank">
+                <i class="fas fa-file-invoice me-2"></i> Invoice
+            </a>
+
+            <a href="{{ route('policies.printDebitNote', $policy->id) }}" class="btn btn-success d-flex align-items-center" target="_blank" title="Print debit note" aria-label="Print debit note">
+                <i class="fas fa-file-invoice me-2"></i> Debit Note
+            </a>
+        </div>
 
         <a href="{{ route('policies.history', $policy->id) }}" class="btn btn-secondary d-flex align-items-center" title="View renewal history" aria-label="View renewal history">
-            <i class="fas fa-history me-2"></i> View History
+            <i class="fas fa-history me-2"></i> History
         </a>
     </div>
 
@@ -519,6 +536,7 @@
                     <th>Reason</th>
                     <th>Effective Date</th>
                     <th>Premium Impact</th>
+                    <th>Actions</th> {{-- NEW: actions column for printing --}}
                 </tr>
             </thead>
             <tbody>
@@ -529,6 +547,26 @@
                     <td>{{ $endorsement->effective_date }}</td>
                     <td style="color: {{ $endorsement->premium_impact >= 0 ? 'green' : 'red' }};">
                         {{ number_format($endorsement->premium_impact, 2) }}
+                    </td>
+                    <td>
+                        {{-- Print full endorsement (always available) --}}
+                        <a href="{{ route('endorsements.print', $endorsement->id) }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Print endorsement">
+                            <i class="fas fa-print me-1"></i> Print
+                        </a>
+
+                        {{-- Print Additions (only when present) --}}
+                        @if(isset($endorsement->additions) && count((array)$endorsement->additions) > 0)
+                            <a href="{{ route('endorsements.print', $endorsement->id) }}?section=additions" target="_blank" class="btn btn-sm btn-outline-success" title="Print additions">
+                                <i class="fas fa-plus me-1"></i> Additions
+                            </a>
+                        @endif
+
+                        {{-- Print Deletions (only when present) --}}
+                        @if(isset($endorsement->deletions) && count((array)$endorsement->deletions) > 0)
+                            <a href="{{ route('endorsements.print', $endorsement->id) }}?section=deletions" target="_blank" class="btn btn-sm btn-outline-danger" title="Print deletions">
+                                <i class="fas fa-trash-alt me-1"></i> Deletions
+                            </a>
+                        @endif
                     </td>
                 </tr>
                 @endforeach

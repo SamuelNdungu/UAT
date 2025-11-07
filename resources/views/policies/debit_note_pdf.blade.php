@@ -143,96 +143,123 @@
     <!-- Description Section -->
     @if ($policy->policy_type_id != '35' && $policy->policy_type_id != '36' && $policy->policy_type_id != '37')
         <div class="group-heading">Description</div>
-        <table>
-            <tbody>
-                <tr>
-                    <td class="form-group">
-                        <label>Description</label>
-                        <span class="value">{{ $policy->description }}</span>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+
+          <div class="preserve-formatting">{{ $policy->description }}</div> 
+
     @endif
 
     <!-- Financial Details Section -->
     <div class="group-heading">Financial Details (KES)</div>
-    <table>
-        <tbody>
-            <tr>
-                <td class="form-group">
-                    <label>Sum Insured</label>
-                    <span class="value">{{ number_format($policy->sum_insured, 2) }}</span>
-                </td>
-                <td class="form-group">
-                    <label>Rate</label>
-                    <span class="value">{{ number_format($policy->rate, 2) }}%</span>
-                </td>
-                <td class="form-group">
-                    <label>Basic Premium</label>
-                    <span class="value">{{ number_format($policy->premium, 2) }}</span>
-                </td> 
-                <td class="form-group">
-                    <label>S. Duty</label>
-                    <span class="value">{{ number_format($policy->s_duty, 2) }}</span>
-                </td>
-            </tr>
-            <tr>
-                <td class="form-group">
-                    <label>T. Levy</label>
-                    <span class="value">{{ number_format($policy->t_levy, 2) }}</span>
-                </td>
-                <td class="form-group">
-                    <label>PCF Levy</label>
-                    <span class="value">{{ number_format($policy->pcf_levy, 2) }}</span>
-                </td>
-                <td class="form-group">
-                    <label>Policy Charge</label>
-                    <span class="value">{{ number_format($policy->policy_charge, 2) }}</span>
-                </td>
-                <td class="form-group">
-                    <label>Other Charges</label>
-                    <span class="value">{{ number_format($policy->other_charges, 2) }}</span>
-                </td> 
-            </tr>
-            <tr>
-                <td class="form-group">
-                    <label>PVT</label>
-                    <span class="value">{{ number_format($policy->pvt, 2) }}</span>
-                </td>
-                <td class="form-group">
-                    <label>Excess</label>
-                    <span class="value">{{ number_format($policy->excess, 2) }}</span>
-                </td>
-                <td class="form-group">
-                    <label>Courtesy Car</label>
-                    <span class="value">{{ number_format($policy->courtesy_car, 2) }}</span>
-                </td>
-                <td class="form-group">
-                    <label>PPL</label>
-                    <span class="value">{{ number_format($policy->ppl, 2) }}</span>
-                </td>
-            </tr>
-            <tr>
-                <td class="form-group">
-                    <label>Road Rescue</label>
-                    <span class="value">{{ number_format($policy->road_rescue, 2) }}</span>
-                </td>
-                <td class="form-group">
-                    <label>Gross Premium</label>
-                    <span class="value">{{ number_format($policy->gross_premium, 2) }}</span>
-                </td>
-                <td class="form-group">
-                    <label></label>
-                    <span class="value"></span>
-                </td>
-                <td class="form-group">
-                    <label></label>
-                    <span class="value"></span>
-                </td>
-            </tr>
-        </tbody>
-    </table>
+
+    @if ($policy->policy_type_id != '35' && $policy->policy_type_id != '36' && $policy->policy_type_id != '37')
+        <!-- Non-vehicle policy types: show only selected fields -->
+        <table>
+            <tbody>
+                <tr>
+                    <td class="form-group">
+                        <label>Basic Premium</label>
+                        <span class="value">{{ number_format($policy->premium, 2) }}</span>
+                    </td> 
+                    <td class="form-group">
+                        <label>S. Duty</label>
+                        <span class="value">{{ number_format($policy->s_duty, 2) }}</span>
+                    </td>
+                    <td class="form-group">
+                        <label>T. Levy</label>
+                        <span class="value">{{ number_format($policy->t_levy, 2) }}</span>
+                    </td>
+                    <td class="form-group">
+                        <label>PCF Levy</label>
+                        <span class="value">{{ number_format($policy->pcf_levy, 2) }}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="form-group">
+                        <label>Policy Charge</label>
+                        <span class="value">{{ number_format($policy->policy_charge, 2) }}</span>
+                    </td>
+                    <td class="form-group">
+                        <label>Gross Premium</label>
+                        <span class="value">{{ number_format($policy->gross_premium, 2) }}</span>
+                    </td>
+                    <td class="form-group"></td>
+                    <td class="form-group"></td>
+                </tr>
+            </tbody>
+        </table>
+    @else
+        <!-- Vehicle policy types: show full financial table -->
+        <table>
+            <tbody>
+                <tr>
+                    <td class="form-group">
+                        <label>Sum Insured</label>
+                        <span class="value">{{ number_format($policy->sum_insured, 2) }}</span>
+                    </td>
+                    <td class="form-group">
+                        <label>Rate</label>
+                        <span class="value">{{ number_format($policy->rate, 2) }}%</span>
+                    </td>
+                    <td class="form-group">
+                        <label>Basic Premium</label>
+                        <span class="value">{{ number_format($policy->premium, 2) }}</span>
+                    </td> 
+                    <td class="form-group">
+                        <label>S. Duty</label>
+                        <span class="value">{{ number_format($policy->s_duty, 2) }}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="form-group">
+                        <label>T. Levy</label>
+                        <span class="value">{{ number_format($policy->t_levy, 2) }}</span>
+                    </td>
+                    <td class="form-group">
+                        <label>PCF Levy</label>
+                        <span class="value">{{ number_format($policy->pcf_levy, 2) }}</span>
+                    </td>
+                    <td class="form-group">
+                        <label>Policy Charge</label>
+                        <span class="value">{{ number_format($policy->policy_charge, 2) }}</span>
+                    </td>
+                    <td class="form-group">
+                        <label>Other Charges</label>
+                        <span class="value">{{ number_format($policy->other_charges, 2) }}</span>
+                    </td> 
+                </tr>
+                <tr>
+                    <td class="form-group">
+                        <label>PVT</label>
+                        <span class="value">{{ number_format($policy->pvt, 2) }}</span>
+                    </td>
+                    <td class="form-group">
+                        <label>Excess</label>
+                        <span class="value">{{ number_format($policy->excess, 2) }}</span>
+                    </td>
+                    <td class="form-group">
+                        <label>Courtesy Car</label>
+                        <span class="value">{{ number_format($policy->courtesy_car, 2) }}</span>
+                    </td>
+                    <td class="form-group">
+                        <label>PPL</label>
+                        <span class="value">{{ number_format($policy->ppl, 2) }}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="form-group">
+                        <label>Road Rescue</label>
+                        <span class="value">{{ number_format($policy->road_rescue, 2) }}</span>
+                    </td>
+                    <td class="form-group">
+                        <label>Gross Premium</label>
+                        <span class="value">{{ number_format($policy->gross_premium, 2) }}</span>
+                    </td>
+                    <td class="form-group"></td>
+                    <td class="form-group"></td>
+                </tr>
+            </tbody>
+        </table>
+    @endif
 
     <!-- Cover Details Section -->
     <div class="group-heading">Cover Details</div>

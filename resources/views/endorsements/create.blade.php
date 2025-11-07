@@ -108,6 +108,13 @@
                         @error($field)
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
+                        {{-- Add display fields for calculated values --}}
+                        @if(in_array($field, ['premium', 'commission', 'wht', 't_levy', 'pcf_levy', 'gross_premium', 'net_premium']))
+                            <input type="text" id="{{ $field }}_display" class="form-control mt-1" style="background:#f8f9fa;" placeholder="Auto-calculated" readonly>
+                        @endif
+                        @if($field === 'premium_impact')
+                            <input type="text" id="premium_impact_display" class="form-control mt-1" style="background:#f8f9fa;" placeholder="Gross Premium (Auto)" readonly>
+                        @endif
                     </div>
                 @endforeach
             </div>
@@ -326,6 +333,88 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+
+    // --- Auto Calculation Logic ---
+    function autoCalculateFinancials() {
+        // Get values and parse as float
+        const sumInsured = parseFloat(document.getElementById('sum_insured').value.replace(/,/g, '')) || 0;
+        const rate = parseFloat(document.getElementById('rate').value.replace(/,/g, '')) || 0;
+        const c_rate = parseFloat(document.getElementById('commission_rate').value.replace(/,/g, '')) || 0;
+        const s_duty = parseFloat(document.getElementById('s_duty').value.replace(/,/g, '')) || 0;
+        const policy_charge = parseFloat(document.getElementById('policy_charge').value.replace(/,/g, '')) || 0;
+        const other_charges = parseFloat(document.getElementById('other_charges').value.replace(/,/g, '')) || 0;
+        const courtesy_car = parseFloat(document.getElementById('courtesy_car').value.replace(/,/g, '')) || 0;
+        const ppl = parseFloat(document.getElementById('ppl').value.replace(/,/g, '')) || 0;
+        const road_rescue = parseFloat(document.getElementById('road_rescue').value.replace(/,/g, '')) || 0;
+        const pvt = parseFloat(document.getElementById('pvt').value.replace(/,/g, '')) || 0;
+        const excess = parseFloat(document.getElementById('excess').value.replace(/,/g, '')) || 0;
+
+        // Calculate premium if rate is entered
+        let premium = parseFloat(document.getElementById('premium').value.replace(/,/g, '')) || 0;
+        let calculatedPremium = premium;
+        if (rate > 0) {
+            calculatedPremium = (sumInsured * rate) / 100;
+            document.getElementById('premium_display').value = formatNumberWithCommas(calculatedPremium.toFixed(2));
+            document.getElementById('premium').value = calculatedPremium.toFixed(2);
+        } else {
+            document.getElementById('premium_display').value = formatNumberWithCommas(calculatedPremium.toFixed(2));
+        }
+
+        // Calculate Commission (c_rate% of premium)
+        const commission = (calculatedPremium * c_rate) / 100;
+        document.getElementById('commission_display').value = formatNumberWithCommas(commission.toFixed(2));
+        document.getElementById('commission').value = commission.toFixed(2);
+
+        // Calculate WHT (10% of commission)
+        const wht = (commission * 10) / 100;
+        document.getElementById('wht_display').value = formatNumberWithCommas(wht.toFixed(2));
+        document.getElementById('wht').value = wht.toFixed(2);
+
+        // Calculate Training Levy (0.20% of premium)
+        const training_levy = (calculatedPremium * 0.20) / 100;
+        document.getElementById('t_levy_display').value = formatNumberWithCommas(training_levy.toFixed(2));
+        document.getElementById('t_levy').value = training_levy.toFixed(2);
+
+        // Calculate PCF Levy (0.25% of premium)
+        const pcf = (calculatedPremium * 0.25) / 100;
+        document.getElementById('pcf_levy_display').value = formatNumberWithCommas(pcf.toFixed(2));
+        document.getElementById('pcf_levy').value = pcf.toFixed(2);
+
+        // Calculate gross premium
+        const gross_premium = calculatedPremium + training_levy + pcf + s_duty + policy_charge + other_charges + 
+                            courtesy_car + ppl + road_rescue + pvt + excess;
+        document.getElementById('gross_premium_display').value = formatNumberWithCommas(gross_premium.toFixed(2));
+        document.getElementById('gross_premium').value = gross_premium.toFixed(2);
+
+        // Calculate net premium (premium - commission + levies/charges)
+        const net_premium = calculatedPremium - commission + training_levy + pcf + s_duty - policy_charge + other_charges + 
+            courtesy_car + ppl + road_rescue + pvt + excess;
+        document.getElementById('net_premium_display').value = formatNumberWithCommas(net_premium.toFixed(2));
+        document.getElementById('net_premium').value = net_premium.toFixed(2);
+
+        // Set premium impact display to gross premium
+        if (document.getElementById('premium_impact_display')) {
+            document.getElementById('premium_impact_display').value = formatNumberWithCommas(gross_premium.toFixed(2));
+        }
+        if (document.getElementById('premium_impact')) {
+            document.getElementById('premium_impact').value = gross_premium.toFixed(2);
+        }
+    }
+
+    // Attach autoCalculateFinancials to relevant fields
+    [
+        'sum_insured', 'rate', 'commission_rate', 's_duty', 'policy_charge', 'other_charges',
+        'courtesy_car', 'ppl', 'road_rescue', 'pvt', 'excess'
+    ].forEach(function(id) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', autoCalculateFinancials);
+            el.addEventListener('blur', autoCalculateFinancials);
+        }
+    });
+
+    // Initial calculation on page load
+    autoCalculateFinancials();
 
     // On page load, apply logic if type is already set (e.g., from old() values)
     applyLogicToAllFields();

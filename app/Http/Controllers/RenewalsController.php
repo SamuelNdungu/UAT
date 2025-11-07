@@ -415,21 +415,148 @@ class RenewalsController extends Controller
     }
 
     /**
-     * Send renewal notifications for policies expiring in 30 days
+     * Send renewal notifications for policies (30 days, 15 days, day-of-expiry)
+     *
+     * Records a RenewalNotice entry for each attempt (sent / skipped / failed).
      */
     private function sendRenewalNotifications()
     {
-        $thirtyDaysFromNow = Carbon::now()->addDays(30);
-        $policies = Policy::with(['customer'])
-            ->whereDate('end_date', $thirtyDaysFromNow->toDateString())
-            ->get();
+        $today = Carbon::today();
+
+        // 30 days out: always send
+        $this->processNoticesForDays(30, '30_days', $today, function ($policy) {
+            return true;
+        });
+
+        // 15 days out: only if still active
+        $this->processNoticesForDays(15, '15_days', $today, function ($policy) {
+            return $this->isActive($policy);
+        });
+
+        // Day of expiry: only if Active and not Renewed or Canceled
+        $this->processNoticesForDays(0, 'expiry', $today, function ($policy) {
+            return $this->isActive($policy) && ! $this->isRenewed($policy) && ! $this->isCanceled($policy);
+        });
+    }
+
+    /**
+     * Generic processor for notices at a given days-out target.
+     *
+     * @param int $daysOut
+     * @param string $noticeType
+     * @param \Carbon\Carbon $today
+     * @param callable $shouldSendFn function(Policy $policy): bool
+     * @return void
+     */
+    private function processNoticesForDays(int $daysOut, string $noticeType, $today, callable $shouldSendFn): void
+    {
+        $targetDate = $today->copy()->addDays($daysOut)->toDateString();
+
+        try {
+            $policies = Policy::with(['customer'])->whereDate('end_date', $targetDate)->get();
+        } catch (\Throwable $e) {
+            \Log::error("RenewalsController: failed to load policies for {$noticeType} on {$targetDate}: " . $e->getMessage());
+            return;
+        }
 
         foreach ($policies as $policy) {
-            if ($policy->customer && $policy->customer->email) {
-                Mail::to($policy->customer->email)
-                    ->send(new RenewalNotification($policy));
+            $email = $policy->customer->email ?? $policy->customer_email ?? null;
+
+            $noticePayload = [
+                'fileno' => $policy->fileno,
+                'policy_id' => $policy->id,
+                'notice_type' => $noticeType,
+                'recipient_email' => $email,
+                'channel' => 'email',
+                'sent_at' => now(),
+            ];
+
+            // If condition says do not send, record skipped and continue
+            if (! $shouldSendFn($policy)) {
+                $noticePayload['status'] = 'skipped';
+                $noticePayload['message'] = 'Condition not met for notice (' . $noticeType . ')';
+                try {
+                    RenewalNotice::create($noticePayload);
+                } catch (\Throwable $e) {
+                    \Log::error('Failed to record skipped RenewalNotice', ['policy_id' => $policy->id, 'error' => $e->getMessage()]);
+                }
+                continue;
+            }
+
+            // If no email, record skipped
+            if (empty($email)) {
+                $noticePayload['status'] = 'skipped';
+                $noticePayload['message'] = 'No customer email available';
+                try {
+                    RenewalNotice::create($noticePayload);
+                } catch (\Throwable $e) {
+                    \Log::error('Failed to record skipped RenewalNotice (no email)', ['policy_id' => $policy->id, 'error' => $e->getMessage()]);
+                }
+                \Log::warning("Renewal notice skipped for policy {$policy->id}: no email");
+                continue;
+            }
+
+            // Attempt to send the email
+            try {
+                // Reuse existing mailable; if you'd like distinct templates per noticeType, swap here.
+                Mail::to($email)->send(new RenewalNotification($policy));
+
+                $noticePayload['status'] = 'sent';
+                $noticePayload['message'] = 'Email sent';
+                try {
+                    RenewalNotice::create($noticePayload);
+                } catch (\Throwable $e) {
+                    \Log::error('Failed to record sent RenewalNotice', ['policy_id' => $policy->id, 'error' => $e->getMessage()]);
+                }
+
+                \Log::info("Renewal notice ({$noticeType}) sent for policy {$policy->id} to {$email}");
+            } catch (\Throwable $e) {
+                \Log::error("Failed to send renewal notice ({$noticeType}) for policy {$policy->id} to {$email}: " . $e->getMessage(), [
+                    'trace' => $e->getTraceAsString()
+                ]);
+
+                $noticePayload['status'] = 'failed';
+                $noticePayload['message'] = substr($e->getMessage(), 0, 1000);
+                try {
+                    RenewalNotice::create($noticePayload);
+                } catch (\Throwable $inner) {
+                    \Log::error('Failed to record failed RenewalNotice', ['policy_id' => $policy->id, 'error' => $inner->getMessage()]);
+                }
             }
         }
+    }
+
+    /**
+     * Helper to determine if a policy is considered Active.
+     * Accepts integer, boolean, or textual status.
+     */
+    private function isActive($policy): bool
+    {
+        $status = $this->normalizeStatus($policy->status ?? $policy->getAttribute('status'));
+        return in_array($status, ['1', 'active', 'activated', 'true'], true);
+    }
+
+    private function isRenewed($policy): bool
+    {
+        $status = $this->normalizeStatus($policy->status ?? $policy->getAttribute('status'));
+        return $status === 'renewed';
+    }
+
+    private function isCanceled($policy): bool
+    {
+        $status = $this->normalizeStatus($policy->status ?? $policy->getAttribute('status'));
+        return in_array($status, ['canceled', 'cancelled', 'cancel'], true);
+    }
+
+    /**
+     * Normalize various status representations to a comparable string.
+     */
+    private function normalizeStatus($raw): string
+    {
+        if (is_null($raw)) return '';
+        if (is_bool($raw)) return $raw ? '1' : '0';
+        if (is_numeric($raw)) return (string) intval($raw);
+        return strtolower(trim((string) $raw));
     }
 
     public function search(Request $request)

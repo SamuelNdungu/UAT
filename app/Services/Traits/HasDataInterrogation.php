@@ -111,6 +111,28 @@ trait HasDataInterrogation
                         ],
                     ]
                 ]
+            ],
+            // Tool to process expired policy renewals
+            [
+                'functionDeclarations' => [
+                    [
+                        'name' => 'process_expired_policy_renewals',
+                        'description' => 'Process and send renewal notices for expired policies. Can filter by how many days ago they expired.',
+                        'parameters' => [
+                            'type' => 'OBJECT',
+                            'properties' => [
+                                'days_ago' => [
+                                    'type' => 'INTEGER',
+                                    'description' => 'Optional: Only include policies that expired in the last X days. If not provided, all expired policies will be processed.'
+                                ],
+                                'status' => [
+                                    'type' => 'STRING',
+                                    'description' => 'Optional: Filter by policy status (e.g., "expired"). Defaults to expired policies.'
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
             ]
         ];
     }
@@ -237,31 +259,34 @@ trait HasDataInterrogation
         return json_encode(['summary' => $summary, 'policies' => $results]);
     }
     
+
     /**
-     * Generic database query tool. Safe-ish: only queries a single table and only columns discovered via Schema.
-     * Accepts 'table_name', optional 'columns' array, 'filters' map, 'search' string, and 'limit'.
-     * Returns JSON: { summary, rows } where rows is an array of associative rows.
+     * Query the database with the given parameters
+     *
+     * @param string $table The table to query
+     * @param array $params Query parameters including columns, filters, etc.
+     * @return string JSON-encoded query results
      */
-    protected function query_database(array $params = []): string
+    /**
+     * Query the database with the given parameters
+     *
+     * @param string $table The table to query
+     * @param array $params Query parameters including columns, filters, etc.
+     * @return string JSON-encoded query results
+     */
+    protected function queryDatabase(string $table, array $params = []): string
     {
-        $table = $params['table_name'] ?? null;
-        if (!$table) {
-            return json_encode(['error' => 'table_name is required']);
-        }
-
-        if (!Schema::hasTable($table)) {
-            return json_encode(['error' => "Table '$table' does not exist"]);
-        }
-
         // Discover columns for the table
         $allColumns = Schema::getColumnListing($table);
+        if (empty($allColumns)) {
+            return json_encode(['error' => 'Table not found or no columns available']);
+        }
 
         // Columns requested (intersection with actual columns)
         $reqCols = $params['columns'] ?? null;
         if (is_array($reqCols) && count($reqCols) > 0) {
             $cols = array_values(array_intersect($reqCols, $allColumns));
             if (count($cols) === 0) {
-                // fallback to all columns if requested columns invalid
                 $cols = $allColumns;
             }
         } else {
@@ -270,13 +295,14 @@ trait HasDataInterrogation
         }
 
         $limit = isset($params['limit']) ? max(1, min(500, (int) $params['limit'])) : 25;
-
         $query = DB::table($table)->select($cols)->limit($limit);
 
         // offset
         if (isset($params['offset'])) {
             $off = (int) $params['offset'];
-            if ($off > 0) $query->offset($off);
+            if ($off > 0) {
+                $query->offset($off);
+            }
         }
 
         // order by
@@ -294,7 +320,9 @@ trait HasDataInterrogation
         $filters = $params['filters'] ?? [];
         if (is_array($filters)) {
             foreach ($filters as $col => $val) {
-                if (!in_array($col, $allColumns)) continue;
+                if (!in_array($col, $allColumns)) {
+                    continue;
+                }
 
                 if (is_array($val) && isset($val['operator'])) {
                     $op = strtoupper($val['operator']);
@@ -447,101 +475,195 @@ trait HasDataInterrogation
     }
 
     /**
-     * Send a renewal notice for a customer. Accepts customer_code, email_to, and optional policy_ids array.
+     * Send a renewal notice for a customer.
+     * 
+     * @param mixed $args Customer code (string) or array of parameters
+     * @param string|null $email_to Email address to send to
+     * @param mixed $policy_ids Optional policy IDs (if $args is customer_code)
+     * @return string JSON response with status and message
      */
-    protected function send_renewal_notice(?string $customer_code = null, ?string $email_to = null, $policy_ids = null): string
-    {
-        // Log raw params for debugging when APP_DEBUG is enabled
-        $rawArgs = func_get_args();
-        if (config('app.debug')) {
-            try { \Illuminate\Support\Facades\Log::info('send_renewal_notice raw_params', ['raw' => $rawArgs]); } catch (\Throwable $_) {}
-        }
+    protected function send_renewal_notice($args = null, ?string $email_to = null, $policy_ids = null): string
+{
+    // Handle both array and parameterized calls
+    if (is_array($args)) {
+        $customer_code = $args['customer_code'] ?? null;
+        $email_to = $args['email_to'] ?? null;
+        $policy_ids = $args['policy_ids'] ?? null;
+        $text = $args['text'] ?? null;
+    } else {
+        $customer_code = $args;
+        // $email_to and $policy_ids are already set from parameters
+    }
 
-        // If both parameters are already provided (mapping from AIService), proceed.
-        // Otherwise, try to extract from other shapes: positional args, single text, or first array element.
-        $text = null;
-        // If no customer_code/email provided, inspect raw args
-        if (empty($customer_code) || empty($email_to)) {
-            // flattened single-arg cases
-            if (count($rawArgs) === 1) {
-                $only = $rawArgs[0];
-                if (is_string($only)) {
-                    $text = $only;
-                } elseif (is_array($only) || is_object($only)) {
-                    $arr = (array) $only;
-                    $customer_code = $customer_code ?? ($arr['customer_code'] ?? $arr['customer'] ?? null);
-                    $email_to = $email_to ?? ($arr['email_to'] ?? $arr['email'] ?? $arr['emailAddress'] ?? null);
-                    $text = $text ?? ($arr['text'] ?? null);
-                }
-            } elseif (count($rawArgs) >= 2) {
-                // positional like ("CUS-00129", "s2ndungu@gmail.com")
-                $pos0 = $rawArgs[0] ?? null;
-                $pos1 = $rawArgs[1] ?? null;
-                if (empty($customer_code) && is_string($pos0) && preg_match('/CUS[- ]?\d{2,6}/i', $pos0)) {
-                    $customer_code = strtoupper(str_replace(' ', '-', $pos0));
-                }
-                if (empty($email_to) && is_string($pos1) && preg_match('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i', $pos1)) {
-                    $email_to = $pos1;
-                }
-                // build text from scalars
-                $pieces = [];
-                foreach ($rawArgs as $r) { if (is_scalar($r)) $pieces[] = (string)$r; }
-                $text = implode(' ', $pieces);
-            }
-        }
-
-        // Consolidate any string-like values into one search string
-        $searchParts = [];
-        if (!empty($text) && is_string($text)) $searchParts[] = $text;
-        foreach ($rawArgs as $r) {
-            if (is_string($r) && trim($r) !== '') $searchParts[] = $r;
-            elseif (is_array($r) && count($r) > 0) {
-                $flat = array_map(function($x){ return is_scalar($x) ? (string)$x : ''; }, $r);
-                $searchParts[] = implode(' ', array_filter($flat));
-            }
-        }
-
-        $search = trim(implode(' ', $searchParts));
-
-        // Try regex extraction from consolidated search if still missing
-        if (!empty($search)) {
-            if (empty($customer_code) && preg_match('/(CUS[- ]?\d{2,6})/i', $search, $m)) {
-                $customer_code = strtoupper(str_replace(' ', '-', $m[1]));
-            }
-            if (empty($email_to) && preg_match('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i', $search, $me)) {
-                $email_to = $me[0];
-            }
-        }
-
+    // If email missing but we have customer_code, try to look up in DB
+    if (!empty($customer_code) && empty($email_to)) {
         try {
-            \Illuminate\Support\Facades\Log::info('send_renewal_notice parsed', ['customer_code' => $customer_code, 'email_to' => $email_to, 'search' => $search]);
-        } catch (\Throwable $_) {}
-
-        // If email missing but we have customer_code, try to look up in DB
-        if (!empty($customer_code) && empty($email_to)) {
-            try {
-                $cust = Customer::where('customer_code', $customer_code)->first();
-                if ($cust && !empty($cust->email)) {
-                    $email_to = $cust->email;
-                    Log::info('send_renewal_notice: looked up customer email', ['customer_code' => $customer_code, 'email' => $email_to]);
-                }
-            } catch (\Throwable $ex) {
-                Log::warning('send_renewal_notice: failed to lookup customer email', ['customer_code' => $customer_code, 'error' => $ex->getMessage()]);
+            $cust = Customer::where('customer_code', $customer_code)->first();
+            if ($cust && !empty($cust->email)) {
+                $email_to = $cust->email;
+                Log::info('send_renewal_notice: looked up customer email', [
+                    'customer_code' => $customer_code, 
+                    'email' => $email_to
+                ]);
             }
-        }
-
-        if (empty($customer_code) || empty($email_to)) {
-            return json_encode(['status' => 'error', 'message' => 'customer_code and email_to are required']);
-        }
-
-        try {
-            $svc = new StatementService();
-            $ok = $svc->sendRenewalNotice($customer_code, $email_to, is_array($policy_ids) ? $policy_ids : null);
-            if ($ok) return json_encode(['status' => 'ok', 'message' => 'Renewal notice sent to ' . $email_to]);
-            return json_encode(['status' => 'error', 'message' => 'Failed to send renewal notice']);
-        } catch (\Throwable $ex) {
-            Log::error('send_renewal_notice exception', ['error' => $ex->getMessage()]);
-            return json_encode(['status' => 'error', 'message' => 'Exception: ' . $ex->getMessage()]);
+        } catch (\Exception $ex) {
+            Log::warning('send_renewal_notice: failed to lookup customer email', [
+                'customer_code' => $customer_code, 
+                'error' => $ex->getMessage()
+            ]);
         }
     }
+
+    if (empty($customer_code) || empty($email_to)) {
+        return json_encode([
+            'status' => 'error', 
+            'message' => 'customer_code and email_to are required'
+        ]);
+    }
+
+    try {
+        $svc = new StatementService();
+        $policyIds = is_array($policy_ids) ? $policy_ids : null;
+        $ok = $svc->sendRenewalNotice($customer_code, $email_to, $policyIds);
+        
+        if ($ok) {
+            return json_encode([
+                'status' => 'ok', 
+                'message' => 'Renewal notice sent to ' . $email_to
+            ]);
+        }
+        
+        return json_encode([
+            'status' => 'error', 
+            'message' => 'Failed to send renewal notice'
+        ]);
+        
+    } catch (\Throwable $ex) {
+        Log::error('send_renewal_notice exception', [
+            'customer_code' => $customer_code,
+            'error' => $ex->getMessage(),
+            'trace' => $ex->getTraceAsString()
+        ]);
+        
+        return json_encode([
+            'status' => 'error', 
+            'message' => 'Exception: ' . $ex->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Process and send renewal notices for expired policies
+ *
+ * @param array $args Arguments including optional 'days_ago' and 'status' filters
+ * @return string JSON response with results
+ */
+protected function process_expired_policy_renewals(array $args = []): string
+{
+    try {
+        // Extract parameters
+        $daysAgo = $args['days_ago'] ?? null;
+        $status = $args['status'] ?? 'expired';
+
+        // Log the start of the process
+        Log::info('Processing expired policy renewals', [
+            'days_ago' => $daysAgo,
+            'status' => $status,
+            'args' => $args
+        ]);
+
+        // Build the query for expired policies
+        $query = \App\Models\Policy::where('status', $status)
+            ->where('expiry_date', '<=', now())
+            ->with('customer');
+
+        // If days_ago is provided, filter by policies that expired within the last X days
+        if ($daysAgo !== null) {
+            $query->where('expiry_date', '>=', now()->subDays($daysAgo));
+        }
+
+        // Get the policies
+        $policies = $query->get();
+        $totalPolicies = $policies->count();
+        $successCount = 0;
+        $failedCount = 0;
+        $results = [];
+
+        Log::info("Found $totalPolicies policies to process");
+
+        // Process each policy
+        foreach ($policies as $policy) {
+            try {
+                $customer = $policy->customer;
+                if (!$customer) {
+                    Log::warning("No customer found for policy ID: " . $policy->id);
+                    $failedCount++;
+                    $results[] = [
+                        'policy_id' => $policy->id,
+                        'policy_number' => $policy->policy_number,
+                        'status' => 'failed',
+                        'error' => 'No customer associated with this policy'
+                    ];
+                    continue;
+                }
+
+                // Use the existing send_renewal_notice function
+                $result = $this->send_renewal_notice([
+                    'customer_code' => $customer->customer_code,
+                    'policy_ids' => [$policy->id],
+                    'email_to' => $customer->email,
+                    'text' => "Renewal notice for expired policy #{$policy->policy_number}"
+                ]);
+
+                $result = json_decode($result, true);
+                if (isset($result['status']) && $result['status'] === 'ok') {
+                    $successCount++;
+                    $results[] = [
+                        'policy_id' => $policy->id,
+                        'policy_number' => $policy->policy_number,
+                        'status' => 'success',
+                        'message' => $result['message'] ?? 'Renewal notice sent successfully'
+                    ];
+                } else {
+                    throw new \Exception($result['message'] ?? 'Unknown error');
+                }
+            } catch (\Exception $e) {
+                $failedCount++;
+                $results[] = [
+                    'policy_id' => $policy->id ?? null,
+                    'policy_number' => $policy->policy_number ?? null,
+                    'status' => 'failed',
+                    'error' => $e->getMessage()
+                ];
+                Log::error("Failed to process policy renewal: " . $e->getMessage(), [
+                    'policy_id' => $policy->id ?? null,
+                    'exception' => $e
+                ]);
+            }
+        }
+
+        // Prepare the response
+        $response = [
+            'success' => true,
+            'message' => "Processed $totalPolicies policies. Success: $successCount, Failed: $failedCount",
+            'total_policies' => $totalPolicies,
+            'success_count' => $successCount,
+            'failed_count' => $failedCount,
+            'results' => $results
+        ];
+
+        return json_encode($response, JSON_PRETTY_PRINT);
+
+    } catch (\Exception $e) {
+        Log::error("Error in process_expired_policy_renewals: " . $e->getMessage(), [
+            'exception' => $e,
+            'args' => $args
+        ]);
+
+        return json_encode([
+            'success' => false,
+            'error' => 'Failed to process expired policy renewals: ' . $e->getMessage()
+        ], JSON_PRETTY_PRINT);
+    }
+}
 }

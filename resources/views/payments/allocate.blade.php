@@ -113,7 +113,13 @@
             </table>
         </div>
 
-        <button type="submit" class="btn btn-primary mt-3">Allocate</button>
+        @can('allocate', $payment)
+            <button type="submit" class="btn btn-primary mt-3" title="Allocate selected amounts to policies" aria-label="Allocate payment {{ $payment->id }}">
+                <i class="fas fa-hand-holding" aria-hidden="true" style="font-size:0.9rem; margin-right:8px;"></i> Allocate
+            </button>
+        @else
+            <button type="button" class="btn btn-primary mt-3" disabled title="You do not have permission to allocate" aria-label="Allocate disabled">Allocate</button>
+        @endcan
     </form>
 </div>
 

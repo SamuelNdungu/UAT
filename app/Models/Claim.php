@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\ClaimEvent;
 
 class Claim extends Model
 {
@@ -21,26 +20,46 @@ class Claim extends Model
     protected $fillable = [
         'policy_id',
         'customer_id',
-        'claim_no',
-        'date_of_loss',
-        'reported_at',
+        'customer_code',
+        'fileno',
+        'claim_number',      // Use consistent naming
+        'claim_no',          // Keep for backward compatibility if needed
+        'loss_date',         // Primary date field
+        'date_of_loss',      // Alias if needed
+        'reported_date',
+        'reported_at',       // Alias if needed
+        'followup_date',
         'status',
-        'description',
-        'amount',
-        'attachments', // JSON metadata for uploaded files
+        'type_of_loss',
+        'claimant_name',
+        'loss_details',
+        'amount_claimed',
+        'amount_paid',
+        'attachments',
         'created_by',
-        // ...other existing fields...
+        'user_id',           // If you have this field
+        'description',       // Only include once
     ];
+
     protected $dates = [
-        'reported_at',
+        'loss_date',
         'date_of_loss',
-        // Add any other date fields here
+        'reported_date',
+        'reported_at',
+        'followup_date',
+        'created_at',
+        'updated_at',
     ];
+
     // Casts for convenient usage
     protected $casts = [
+        'loss_date' => 'date',
         'date_of_loss' => 'date',
+        'reported_date' => 'datetime',
         'reported_at' => 'datetime',
-        'amount' => 'float',
+        'followup_date' => 'date',
+        'amount_claimed' => 'float',
+        'amount_paid' => 'float',
         'attachments' => 'array',
     ];
 
@@ -52,7 +71,7 @@ class Claim extends Model
 
     public function customer()
     {
-        return $this->belongsTo(\App\Models\Customer::class, 'customer_id');
+        return $this->belongsTo(Customer::class, 'customer_id');
     }
 
     /**
@@ -68,7 +87,15 @@ class Claim extends Model
      */
     public function documents()
     {
-        return $this->hasMany(\App\Models\Document::class, 'claim_id');
+        return $this->hasMany(Document::class, 'claim_id');
+    }
+
+    /**
+     * User who created the claim
+     */
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     // Human-readable status list
@@ -87,5 +114,41 @@ class Claim extends Model
     public function getStatusLabelAttribute()
     {
         return self::statusList()[$this->status] ?? ucfirst($this->status);
+    }
+
+    // Accessor to handle both date_of_loss and loss_date
+    public function getDateOfLossAttribute($value)
+    {
+        return $value ?: $this->loss_date;
+    }
+
+    public function setDateOfLossAttribute($value)
+    {
+        $this->attributes['date_of_loss'] = $value;
+        $this->attributes['loss_date'] = $value;
+    }
+
+    // Accessor to handle both reported_at and reported_date
+    public function getReportedAtAttribute($value)
+    {
+        return $value ?: $this->reported_date;
+    }
+
+    public function setReportedAtAttribute($value)
+    {
+        $this->attributes['reported_at'] = $value;
+        $this->attributes['reported_date'] = $value;
+    }
+
+    // Accessor to handle both claim_no and claim_number
+    public function getClaimNoAttribute($value)
+    {
+        return $value ?: $this->claim_number;
+    }
+
+    public function setClaimNoAttribute($value)
+    {
+        $this->attributes['claim_no'] = $value;
+        $this->attributes['claim_number'] = $value;
     }
 }

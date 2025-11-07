@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\MpesaTransaction;
+
 use App\Models\Payment;
 use App\Models\Customer;
 use App\Models\Policy;
@@ -14,47 +16,105 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\CustomersExport;
 use App\Exports\PaymentsExport;
 use PDF; // Make sure to use PDF class for PDF exports
+use App\Services\MpesaService;
 class PaymentsController extends Controller
 {
-    // Display a list of payments
-    public function index()
+    protected $mpesaService;
+
+    public function __construct(MpesaService $mpesaService)
     {
-        // Fetch payments with customer details and related receipts and allocations
-        $payments = Payment::select(
+        $this->mpesaService = $mpesaService;
+    }
+    // Display a list of payments with server-side filters and pagination
+    public function index(Request $request)
+    {
+        // Filters
+        $filter = $request->query('filter', 'unallocated');
+        $perPage = (int) $request->query('per_page', 10);
+
+        // Build base query
+        $query = Payment::select(
                 'payments.*',
                 DB::raw("CONCAT(customers.first_name, ' ', customers.last_name, ' ', customers.surname) AS customer_full_name"),
                 'customers.corporate_name'
             )
             ->join('customers', 'payments.customer_code', '=', 'customers.customer_code')
             ->with('receipts', 'allocations')
-            ->orderBy('payments.payment_date', 'desc')
-            ->get();
-    
-        // Calculate payment metrics
+            ->orderBy('payments.payment_date', 'desc');
+
+        // Optional date range filter
+        if ($request->filled('from') && $request->filled('to')) {
+            $query->whereBetween('payments.payment_date', [$request->query('from'), $request->query('to')]);
+        } elseif ($request->filled('from')) {
+            $query->where('payments.payment_date', '>=', $request->query('from'));
+        } elseif ($request->filled('to')) {
+            $query->where('payments.payment_date', '<=', $request->query('to'));
+        }
+
+        // Optional customer filter: allow searching by customer name or corporate name (partial match)
+        if ($request->filled('customer')) {
+            // Trim and escape user input for LIKE
+            $rawSearch = trim($request->query('customer'));
+            if ($rawSearch !== '') {
+                // escape % and _ to avoid wildcard injection
+                $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $rawSearch);
+                $like = "%{$escaped}%";
+
+                // Filter on individual name columns and corporate_name for more reliable matches
+                $query->where(function ($q) use ($like) {
+                    $q->where('customers.first_name', 'LIKE', $like)
+                      ->orWhere('customers.last_name', 'LIKE', $like)
+                      ->orWhere('customers.surname', 'LIKE', $like)
+                      ->orWhere('customers.corporate_name', 'LIKE', $like);
+                });
+            }
+        }
+
+        // Allocated/unallocated/zero filters
+        switch ($filter) {
+            case 'allocated':
+                $query->whereHas('receipts', function ($q) { $q->where('remaining_amount', 0); });
+                break;
+            case 'unallocated':
+                $query->whereHas('receipts', function ($q) { $q->where('allocated_amount', 0); });
+                break;
+            case 'zero-payment':
+                $query->where('payment_amount', 0);
+                break;
+            case 'both':
+            default:
+                // no extra filter
+                break;
+        }
+
+        // Paginate and keep query string for links
+        $payments = $query->paginate($perPage)->appends($request->query());
+
+        // Calculate payment metrics (kept as global aggregates)
         $totalSales = Policy::sum('gross_premium');
         $totalPayments = Payment::sum('payment_amount');
         $totalAllocated = Receipt::sum('allocated_amount');
         $totalRemaining = Receipt::sum('remaining_amount');
         $balance = $totalSales - $totalAllocated;
-    
+
         // Debtors Aging
         $currentDate = now();
         $balanceLessThan30 = Policy::where('balance', '>', 0)
-                            ->whereBetween('start_date', [$currentDate->subDays(30), $currentDate])
+                            ->whereBetween('start_date', [$currentDate->copy()->subDays(30), $currentDate])
                             ->sum('balance');
-    
+
         $balance30To60 = Policy::where('balance', '>', 0)
-                            ->whereBetween('start_date', [$currentDate->subDays(60), $currentDate->subDays(31)])
+                            ->whereBetween('start_date', [$currentDate->copy()->subDays(60), $currentDate->copy()->subDays(31)])
                             ->sum('balance');
-    
+
         $balance60To90 = Policy::where('balance', '>', 0)
-                            ->whereBetween('start_date', [$currentDate->subDays(90), $currentDate->subDays(61)])
+                            ->whereBetween('start_date', [$currentDate->copy()->subDays(90), $currentDate->copy()->subDays(61)])
                             ->sum('balance');
-    
+
         $balanceMoreThan90 = Policy::where('balance', '>', 0)
-                            ->where('start_date', '<', $currentDate->subDays(91))
+                            ->where('start_date', '<', $currentDate->copy()->subDays(91))
                             ->sum('balance');
-    
+
         $metrics = [
             'totalSales' => $totalSales,
             'totalPayments' => $totalPayments,
@@ -66,7 +126,7 @@ class PaymentsController extends Controller
             'balance60To90' => $balance60To90,
             'balanceMoreThan90' => $balanceMoreThan90,
         ];
-    
+
         // Pass payments and metrics to the view
         return view('payments.index', compact('payments', 'metrics'));
     }
@@ -168,87 +228,81 @@ public function store(Request $request)
             // do not abort; we'll skip canceled policies and process the rest
         }
 
+        // Pre-validate totals before starting transaction
+        $requestedTotal = 0.0;
+        $allocationsToProcess = [];
+        foreach ($validatedData['allocations'] as $allocationData) {
+            $allocAmount = floatval($allocationData['allocation_amount']);
+            if ($allocAmount <= 0) {
+                continue; // skip zero or negative
+            }
+            $policyId = $allocationData['policy_id'];
+            $allocationsToProcess[$policyId] = $allocAmount;
+            $requestedTotal += $allocAmount;
+        }
+
+        if (empty($allocationsToProcess)) {
+            return redirect()->back()->with('info', 'No valid allocations to process.');
+        }
+
         DB::beginTransaction();
-
         try {
-            $payment = Payment::findOrFail($id);
-
-            $receipt = $payment->receipts->first(); // Assuming one receipt per payment
+            // Reload payment and lock receipt row for update to avoid races
+            $payment = Payment::with('receipts')->findOrFail($id);
+            $receipt = $payment->receipts->first(); // assume single receipt
             if (!$receipt) {
-                \Log::error('PaymentsController@storeAllocation: no receipt found for payment', ['payment_id' => $id]);
-                return redirect()->back()->with('error', 'No receipt found for this payment. Allocation aborted.');
+                DB::rollBack();
+                return redirect()->back()->with('error', 'No receipt found for this payment.');
             }
 
-            $totalAllocated = 0;
+            // Lock the receipt row
+            $receipt = Receipt::where('id', $receipt->id)->lockForUpdate()->first();
 
-            // Prepare allocations to process (skip canceled targets)
-            $allocationsToProcess = [];
-            foreach ($validatedData['allocations'] as $allocationData) {
-                $policy = Policy::find($allocationData['policy_id']);
-                if ($policy && $policy->isCancelled()) {
-                    // skip canceled
-                    continue;
-                }
-                $allocationsToProcess[] = $allocationData;
+            // Re-check available remaining amount
+            if ($requestedTotal > floatval($receipt->remaining_amount)) {
+                DB::rollBack();
+                return redirect()->back()->with('error', 'Requested allocation exceeds receipt remaining amount.');
             }
 
-            if (empty($allocationsToProcess)) {
-                // Nothing to process (all allocations were canceled or zero)
-                \Log::info('PaymentsController@storeAllocation: no allocations to process after skipping canceled policies', ['payment_id' => $id, 'canceled' => $canceled, 'user_id' => optional(auth()->user())->id]);
-                if (!empty($canceled)) {
-                    $msg = 'All requested allocations were skipped because the targeted policies are canceled: ' . implode(', ', $canceled);
-                    return redirect()->back()->with('warning', $msg);
-                }
-                return redirect()->back()->with('info', 'No allocations to process.');
-            }
+            // Eager-load affected policies and lock them for update
+            $policyIds = array_keys($allocationsToProcess);
+            $policies = Policy::whereIn('id', $policyIds)->lockForUpdate()->get()->keyBy('id');
 
-            foreach ($allocationsToProcess as $allocationData) {
-                // Skip zero allocations to avoid creating no-op rows
-                $allocAmount = floatval($allocationData['allocation_amount']);
-                if ($allocAmount <= 0) {
-                    \Log::info('PaymentsController@storeAllocation: skipping zero allocation', ['payment_id' => $id, 'policy_id' => $allocationData['policy_id'], 'amount' => $allocAmount, 'user_id' => optional(auth()->user())->id]);
-                    continue;
-                }
-                $policy = Policy::find($allocationData['policy_id']);
+            $totalAllocated = 0.0;
+
+            foreach ($allocationsToProcess as $policyId => $allocAmount) {
+                $policy = $policies->get($policyId);
                 if (!$policy) {
-                    \Log::warning('PaymentsController@storeAllocation: policy not found for allocation', ['payment_id' => $id, 'policy_id' => $allocationData['policy_id'], 'user_id' => optional(auth()->user())->id]);
-                    continue; // skip this allocation
+                    \Log::warning('PaymentsController@storeAllocation: policy not found', ['policy_id' => $policyId, 'payment_id' => $id]);
+                    continue;
+                }
+                if ($policy->isCancelled()) {
+                    \Log::info('Skipping cancelled policy', ['policy_id' => $policyId]);
+                    continue;
                 }
 
                 // Create allocation record
                 $allocation = Allocation::create([
                     'payment_id' => $payment->id,
-                    'policy_id' => $allocationData['policy_id'],
+                    'policy_id' => $policy->id,
                     'allocation_amount' => $allocAmount,
                     'allocation_date' => now(),
                     'user_id' => optional(auth()->user())->id,
                 ]);
 
-                \Log::info('PaymentsController@storeAllocation: allocation created', ['allocation_id' => $allocation->id, 'payment_id' => $payment->id, 'policy_id' => $policy->id, 'amount' => $allocAmount, 'user_id' => optional(auth()->user())->id]);
-
-                // Debugging: Log the policy before updating
-                \Log::info('Policy before update', ['policy_id' => $policy->id, 'paid_amount' => $policy->paid_amount, 'balance' => $policy->balance]);
-
+                // Update policy amounts
                 $policy->paid_amount += $allocAmount;
-                $policy->outstanding_amount -= $allocAmount;
+                $policy->outstanding_amount = max(0, $policy->outstanding_amount - $allocAmount);
                 $policy->balance = $policy->gross_premium - $policy->paid_amount;
                 $policy->save();
-
-                // Debugging: Log the policy after updating
-                \Log::info('Policy after update', ['policy_id' => $policy->id, 'paid_amount' => $policy->paid_amount, 'balance' => $policy->balance]);
 
                 $totalAllocated += $allocAmount;
             }
 
-            // Update the receipt
+            // Update the receipt totals
             $receipt->allocated_amount += $totalAllocated;
-            $receipt->remaining_amount -= $totalAllocated;
+            $receipt->remaining_amount = max(0, $receipt->remaining_amount - $totalAllocated);
             $receipt->save();
-
-            // Debugging: Log the receipt after updating
-            \Log::info('Receipt after update', $receipt->toArray());
-
-            \Log::info('PaymentsController@storeAllocation: allocation completed', ['payment_id' => $payment->id, 'total_allocated' => $totalAllocated, 'user_id' => optional(auth()->user())->id]);
 
             DB::commit();
             return redirect()->route('payments.index')->with('success', 'Payment allocated successfully.');
@@ -322,51 +376,123 @@ public function initiateMpesaPayment(Request $request)
         'amount' => 'required|numeric',
         'phone_number' => 'required', // Ensure this is a valid M-PESA registered number
     ]);
+    $stkPushResponse = $this->mpesaService->triggerStkPush($validated['phone_number'], $validated['amount']);
 
-    $stkPushResponse = $this->triggerSTKPush($validated['phone_number'], $validated['amount']);
-    
-    if ($stkPushResponse->ResponseCode == '0') {
+    if ($stkPushResponse && isset($stkPushResponse->ResponseCode) && $stkPushResponse->ResponseCode == '0') {
         return back()->with('success', 'Please complete the payment on your phone.');
     }
-    
+
     return back()->with('error', 'Failed to initiate M-PESA payment.');
-}
-
-private function triggerSTKPush($phoneNumber, $amount)
-{
-    $accessToken = $this->getMpesaAccessToken();
-    $url = config('mpesa.stk_push_url');
-    $curl = curl_init();
-    curl_setopt($curl, CURLOPT_URL, $url);
-    curl_setopt($curl, CURLOPT_HTTPHEADER, [
-        'Authorization: Bearer ' . $accessToken,
-        'Content-Type: application/json'
-    ]);
-
-    $curl_post_data = [
-        // STK Push parameters here
-    ];
-
-    curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($curl, CURLOPT_POST, true);
-    curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($curl_post_data));
-    $curl_response = curl_exec($curl);
-    curl_close($curl);
-
-    return json_decode($curl_response);
 }
 public function handleMpesaCallback(Request $request)
 {
-    $callbackJSONData = file_get_contents('php://input');
-    $callbackData = json_decode($callbackJSONData);
+    $result = $this->mpesaService->handleCallback($request);
+    if (!$result['valid']) {
+        Log::warning('Mpesa callback validation failed', ['reason' => $result['reason']]);
+        return response()->json(['status' => 'error', 'reason' => $result['reason']], 400);
+    }
+        $callbackData = $result['data'];
 
-    $transaction = $this->storeTransaction($callbackData);
+        // Persist the callback payload and return a simple acknowledgment
+        try {
+            $mpesa = $this->storeTransaction($callbackData);
+            Log::info('Mpesa callback stored', ['id' => $mpesa->id ?? null]);
+        } catch (\Throwable $e) {
+            Log::error('Mpesa callback store failed: ' . $e->getMessage());
+            return response()->json(['status' => 'error'], 500);
+        }
 
-    // Process the transaction based on received data
-    // E.g., verify transaction, allocate to a customer account, etc.
-    
-    return response()->json(['status' => 'success', 'message' => 'Callback received successfully']);
+        return response()->json(['status' => 'received']);
 }
+
+    /**
+     * Persist an incoming MPESA callback payload to the database.
+     * Returns the created MpesaTransaction model.
+     */
+    protected function storeTransaction(array $payload)
+    {
+        $transactionCode = data_get($payload, 'Body.stkCallback.CheckoutRequestID') ?: data_get($payload, 'Body.stkCallback.ResultCode');
+        $amount = data_get($payload, 'Body.stkCallback.CallbackMetadata.Item.0.Value') ?: data_get($payload, 'Body.stkCallback.CallbackMetadata.Item.amount');
+        $phone = null;
+
+        $items = data_get($payload, 'Body.stkCallback.CallbackMetadata.Item');
+        if (is_array($items)) {
+            foreach ($items as $it) {
+                if (isset($it['Name']) && strtolower($it['Name']) === 'mpesareceiptnumber') {
+                    $transactionCode = $it['Value'];
+                }
+                if (isset($it['Name']) && in_array(strtolower($it['Name']), ['amount', 'transactionamount'])) {
+                    $amount = $it['Value'];
+                }
+                if (isset($it['Name']) && in_array(strtolower($it['Name']), ['phonenumber', 'msisdn'])) {
+                    $phone = $it['Value'];
+                }
+            }
+        }
+
+        // Create initial record
+        $record = MpesaTransaction::create([
+            'provider' => 'mpesa',
+            'transaction_code' => $transactionCode,
+            'amount' => $amount,
+            'phone_number' => $phone,
+            'status' => 'received',
+            'raw_payload' => $payload,
+            'processed_at' => null,
+        ]);
+
+        // Attempt reconciliation
+        try {
+            // 1) Try exact match by receipt number (often MPESA uses receipt as a reference)
+            if ($transactionCode) {
+                $receipt = Receipt::where('receipt_number', $transactionCode)->first();
+                if ($receipt) {
+                    $record->receipt_id = $receipt->id;
+                    $record->payment_id = $receipt->payment_id;
+                    $record->status = 'matched_receipt';
+                    $record->processed_at = now();
+                    $record->save();
+                    // Optionally mark payment/receipt as paid or create allocations here
+                    return $record;
+                }
+            }
+
+            // 2) Fallback: match by phone and amount within a configurable time window
+            if ($phone && $amount) {
+                $days = intval(config('mpesa.matching.time_window_days', 1));
+                $start = now()->subDays($days)->startOfDay();
+                $end = now()->endOfDay();
+
+                $possibleReceipts = Receipt::whereBetween('receipt_date', [$start, $end])->with(['payment.customer'])->get();
+
+                $normTxPhone = $this->mpesaService::normalizePhone($phone);
+
+                foreach ($possibleReceipts as $r) {
+                    $payment = $r->payment;
+                    if (!$payment) continue;
+
+                    $customerPhone = data_get($payment, 'customer.phone');
+                    $normCustomerPhone = $this->mpesaService::normalizePhone($customerPhone);
+
+                    $amountMatch = $this->mpesaService::amountsAreClose($payment->payment_amount ?? $r->remaining_amount, $amount);
+                    $phoneMatch = $normTxPhone && $normCustomerPhone && ($normTxPhone === $normCustomerPhone || strpos($normCustomerPhone, $normTxPhone) !== false || strpos($normTxPhone, $normCustomerPhone) !== false);
+
+                    if ($amountMatch && $phoneMatch) {
+                        $record->receipt_id = $r->id;
+                        $record->payment_id = $payment->id;
+                        $record->status = 'matched_fuzzy';
+                        $record->processed_at = now();
+                        $record->save();
+                        return $record;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Mpesa reconciliation attempt failed: ' . $e->getMessage());
+        }
+
+        return $record;
+    }
 
 public function unallocateAll($id)
 {
@@ -436,35 +562,22 @@ public function unallocateAll($id)
 
 public function printReceipt($id)
 {
-    // Eager load the customer and receipts relationships in one query
-    $payment = Payment::with(['customer', 'receipts'])->findOrFail($id);
+    $payment = Payment::with(['customer', 'receipts', 'allocations.policy'])->findOrFail($id);
+    $company = \App\Models\CompanyData::first();
     
-    //dd($payment->customer); 
-    // Debugging: Log payment details
-    Log::info('Payment Details:', [
-        'payment_id' => $payment->id,
-        'payment_amount' => $payment->payment_amount,
-        'customer' => $payment->customer->first_name,
-        'customer_name' => $payment->customer ? $payment->customer->customer_name : 'N/A',
-        'receipts' => $payment->receipts,
-    ]);
-    
-    // Check if receipts exist
-    if ($payment->receipts->isEmpty()) {
-        Log::error('No receipts found for payment:', ['payment_id' => $id]);
-        return redirect()->back()->with('error', 'No receipts found for this payment.');
-    }
-
-    // Prepare the data needed for the receipt view
-    $data = [
+    $pdf = PDF::loadView('receipts.receipt_pdf', [ // Change to PDF view
         'payment' => $payment,
-    ];
-
-    // Load the view and generate the PDF
-    $pdf = PDF::loadView('receipts.print', $data);
-
-    // Download the PDF
-    return $pdf->download('receipt_' . $payment->receipts->first()->receipt_number . '.pdf');
+        'company' => $company
+    ])->setPaper('a4', 'portrait')
+      ->setOptions([
+          'margin-top'    => 10,
+          'margin-right'  => 10,
+          'margin-bottom' => 10,
+          'margin-left'   => 10,
+      ]);
+    
+    $filename = 'receipt-' . $payment->receipts->first()->receipt_number . '.pdf';
+    return $pdf->download($filename); // Use stream to open in browser
 }
 
 public function exportPdf()
@@ -490,5 +603,65 @@ public function exportExcel()
     return Excel::download(new PaymentsExport, 'payments.xlsx');
 }
 
+    /**
+     * Debug helper: return the SQL and bindings used for the payments index query for a sample customer search.
+     * Only registered when app.debug is true.
+     */
+    public function debugSearchSql(Request $request)
+    {
+        $sample = $request->query('customer', 'john');
+
+        $filter = $request->query('filter', 'unallocated');
+
+        $query = Payment::select(
+                'payments.*',
+                DB::raw("CONCAT(customers.first_name, ' ', customers.last_name, ' ', customers.surname) AS customer_full_name"),
+                'customers.corporate_name'
+            )
+            ->join('customers', 'payments.customer_code', '=', 'customers.customer_code')
+            ->with('receipts', 'allocations')
+            ->orderBy('payments.payment_date', 'desc');
+
+        // apply the search logic used in index
+        $rawSearch = trim($sample);
+        if ($rawSearch !== '') {
+            $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $rawSearch);
+            $like = "%{$escaped}%";
+
+            $query->where(function ($q) use ($like) {
+                $q->where('customers.first_name', 'LIKE', $like)
+                  ->orWhere('customers.last_name', 'LIKE', $like)
+                  ->orWhere('customers.surname', 'LIKE', $like)
+                  ->orWhere('customers.corporate_name', 'LIKE', $like);
+            });
+        }
+
+        // apply filter summary (only a subset)
+        switch ($filter) {
+            case 'allocated':
+                $query->whereHas('receipts', function ($q) { $q->where('remaining_amount', 0); });
+                break;
+            case 'unallocated':
+                $query->whereHas('receipts', function ($q) { $q->where('allocated_amount', 0); });
+                break;
+            case 'zero-payment':
+                $query->where('payment_amount', 0);
+                break;
+        }
+
+        // Log SQL and bindings to laravel log for additional inspection
+        try {
+            Log::info('Debug payments search SQL', ['sql' => $query->toSql(), 'bindings' => $query->getBindings()]);
+        } catch (\Exception $e) {
+            // swallow logging errors in debug helper
+        }
+
+        // Return SQL and bindings for inspection
+        return response()->json([
+            'sql' => $query->toSql(),
+            'bindings' => $query->getBindings(),
+        ]);
+    }
 
 }
+

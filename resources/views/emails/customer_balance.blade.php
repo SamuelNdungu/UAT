@@ -81,20 +81,94 @@
             <thead>
                 <tr>
                     <th>File No.</th>
-                    <th>Policy Type</th>                    
+                    <th>Policy Type</th>
                     <th>Gross Premium</th>
+                    <th>Endorsements</th> {{-- NEW --}}
+                    <th>Adjusted Due</th>  {{-- NEW --}}
                     <th>Paid Amount</th>
                     <th>Balance</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach ($balances as $balance)
-                <tr> 
-                    <td>{{ $balance['fileno'] }}</td> <!-- Displaying File Number -->
-                    <td>{{ $balance['type'] }}</td> <!-- Displaying Policy Type Name -->
-                    <td>KES {{ number_format($balance['gross_premium'], 2) }}</td> <!-- Displaying Gross Premium -->
-                    <td>KES {{ number_format($balance['paid_amount'], 2) }}</td> <!-- Displaying Paid Amount -->
-                    <td>KES {{ number_format($balance['balance'], 2) }}</td> <!-- Displaying Balance -->
+                @php
+                    $gross = (float)($balance['gross_premium'] ?? 0);
+                    $paid  = (float)($balance['paid_amount'] ?? 0);
+
+                    // Helper to extract a numeric amount from various shapes, now including delta_net_premium and delta_gross_premium
+                    $extractAmount = function($item) {
+                        if (is_numeric($item)) {
+                            return (float)$item;
+                        }
+                        if (is_array($item)) {
+                            if (isset($item['delta_net_premium'])) return (float)$item['delta_net_premium'];
+                            if (isset($item['delta_gross_premium'])) return (float)$item['delta_gross_premium'];
+                            if (isset($item['premium_impact'])) return (float)$item['premium_impact'];
+                            if (isset($item['amount'])) return (float)$item['amount'];
+                            if (isset($item['value'])) return (float)$item['value'];
+                        }
+                        if (is_object($item)) {
+                            // Eloquent model with accessor net_impact
+                            if (isset($item->net_impact)) return (float)$item->net_impact;
+                            if (isset($item->delta_net_premium)) return (float)$item->delta_net_premium;
+                            if (isset($item->delta_gross_premium)) return (float)$item->delta_gross_premium;
+                            if (isset($item->premium_impact)) return (float)$item->premium_impact;
+                            if (isset($item->amount)) return (float)$item->amount;
+                            if (isset($item->value)) return (float)$item->value;
+                        }
+                        return 0.0;
+                    };
+
+                    // Determine endorsement adjustment:
+                    $endorsementSum = 0.0;
+
+                    if (isset($balance['endorsement_sum'])) {
+                        // Controller pre-computed sum (preferred)
+                        $endorsementSum = (float)$balance['endorsement_sum'];
+                    } else {
+                        // 1) If a generic endorsements collection is provided, sum their net impact
+                        if (isset($balance['endorsements']) && is_iterable($balance['endorsements'])) {
+                            foreach ($balance['endorsements'] as $e) {
+                                $endorsementSum += $extractAmount($e);
+                            }
+                        }
+
+                        // 2) Otherwise, handle explicit additions (positive) and deletions (negative)
+                        if (isset($balance['additions']) && is_iterable($balance['additions'])) {
+                            foreach ($balance['additions'] as $a) {
+                                $amt = $extractAmount($a);
+                                $endorsementSum += abs($amt);
+                            }
+                        }
+
+                        if (isset($balance['deletions']) && is_iterable($balance['deletions'])) {
+                            foreach ($balance['deletions'] as $d) {
+                                $amt = $extractAmount($d);
+                                $endorsementSum -= abs($amt);
+                            }
+                        }
+                    }
+
+                    // Adjusted amount due = original gross + endorsements (endorsements may be negative for credits)
+                    $adjustedDue = $gross + $endorsementSum;
+                    $balanceAmount = $adjustedDue - $paid;
+                @endphp
+                <tr>
+                    <td>{{ $balance['fileno'] }}</td>
+                    <td>{{ $balance['type'] }}</td>
+                    <td>KES {{ number_format($gross, 2) }}</td>
+                    <td>
+                        @if($endorsementSum == 0)
+                            KES 0.00
+                        @else
+                            <span style="color: {{ $endorsementSum >= 0 ? '#28a745' : '#dc3545' }};">
+                                KES {{ number_format($endorsementSum, 2) }}
+                            </span>
+                        @endif
+                    </td>
+                    <td>KES {{ number_format($adjustedDue, 2) }}</td>
+                    <td>KES {{ number_format($paid, 2) }}</td>
+                    <td><strong>KES {{ number_format($balanceAmount, 2) }}</strong></td>
                 </tr>
                 @endforeach
             </tbody>

@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('policies', function (Blueprint $table) {
-            $table->boolean('is_canceled')->default(false)->after('status');
-        });
+        if (!Schema::hasColumn('policies', 'is_canceled')) {
+            Schema::table('policies', function (Blueprint $table) {
+                $table->boolean('is_canceled')->default(false)->after('status');
+            });
+        }
     }
 
     /**

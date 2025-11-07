@@ -168,15 +168,61 @@
 							</div>
 
 							{{-- Attachments upload --}}
-							<div class="col-12">
-								<div class="group-heading mt-3">Attachments</div>
-								<div class="mb-2 small-muted">You can upload multiple files (images, PDF, docs). Max 5MB each.</div>
+{{-- Enhanced Documents Management --}}
+<div class="col-12">
+    <div class="group-heading mt-3">Documents</div>
+    <div class="mb-2 small-muted">Add multiple documents with descriptions for better organization.</div>
 
-								<input type="file" name="attachments[]" id="attachments" class="form-control mb-2" multiple accept=".jpg,.jpeg,.png,.pdf,.doc,.docx">
-								@error('attachments.*') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
-
-								<div id="attachment-previews" class="d-flex flex-wrap mt-2"></div>
-							</div>
+    <div class="row mt-4">
+        <div class="col-12">
+            <table class="table table-bordered" id="documentsTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Document Description</th>
+                        <th>Document</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if(old('document_description'))
+                        @foreach(old('document_description') as $key => $description)
+                            <tr>
+                                <td>{{ $key + 1 }}</td>
+                                <td>
+                                    <input type="text" name="document_description[]" class="form-control" placeholder="Enter description" value="{{ $description }}">
+                                    @error('document_description.'.$key) <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                                </td>
+                                <td>
+                                    <input type="file" name="upload_file[]" class="form-control">
+                                    @error('upload_file.'.$key) <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="removeDocumentRow(this)">Remove</button>
+                                </td>
+                            </tr>
+                        @endforeach
+                    @else
+                        {{-- Initial empty row --}}
+                        <tr>
+                            <td>1</td>
+                            <td>
+                                <input type="text" name="document_description[]" class="form-control" placeholder="Enter description">
+                            </td>
+                            <td>
+                                <input type="file" name="upload_file[]" class="form-control">
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-danger btn-sm" onclick="removeDocumentRow(this)">Remove</button>
+                            </td>
+                        </tr>
+                    @endif
+                </tbody>
+            </table>
+            <button type="button" class="btn btn-secondary" onclick="addDocumentRow()">Add Document</button>
+        </div>
+    </div>
+</div>
 
 							{{-- Submit --}}
 							<div class="col-12 text-end mt-3">
@@ -321,5 +367,49 @@ document.addEventListener('DOMContentLoaded', function () {
 		});
 	});
 });
+
+
+// Document Management Functions
+function addDocumentRow() {
+    const table = document.getElementById('documentsTable').getElementsByTagName('tbody')[0];
+    const rowCount = table.rows.length;
+    
+    const newRow = table.insertRow();
+    newRow.innerHTML = `
+        <td>${rowCount + 1}</td>
+        <td>
+            <input type="text" name="document_description[]" class="form-control" placeholder="Enter description">
+        </td>
+        <td>
+            <input type="file" name="upload_file[]" class="form-control">
+        </td>
+        <td>
+            <button type="button" class="btn btn-danger btn-sm" onclick="removeDocumentRow(this)">Remove</button>
+        </td>
+    `;
+    
+    updateRowNumbers();
+}
+
+function removeDocumentRow(button) {
+    const row = button.closest('tr');
+    const table = document.getElementById('documentsTable').getElementsByTagName('tbody')[0];
+    
+    if (table.rows.length > 1) {
+        row.remove();
+        updateRowNumbers();
+    } else {
+        alert('You need at least one document row.');
+    }
+}
+
+function updateRowNumbers() {
+    const table = document.getElementById('documentsTable').getElementsByTagName('tbody')[0];
+    const rows = table.rows;
+    
+    for (let i = 0; i < rows.length; i++) {
+        rows[i].cells[0].textContent = i + 1;
+    }
+}
 </script>
 @endsection

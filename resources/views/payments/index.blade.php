@@ -62,10 +62,28 @@
     </div>
 
     <div class="mb-3">
-        <label><input type="radio" name="filter" value="allocated" onclick="filterTable()"> Allocated</label>
-        <label><input type="radio" name="filter" value="unallocated" onclick="filterTable()" checked> Unallocated</label>
-        <label><input type="radio" name="filter" value="both" onclick="filterTable()"> Both</label>
-        <label><input type="radio" name="filter" value="zero-payment" onclick="filterTable()"> Payment = 0</label> <!-- New Radio Button -->
+        <form method="GET" action="{{ route('payments.index') }}" class="row gx-2 gy-2 align-items-center">
+            <div class="col-auto">
+                <select name="filter" class="form-select form-select-sm">
+                    <option value="both" {{ request('filter') == 'both' ? 'selected' : '' }}>Both</option>
+                    <option value="allocated" {{ request('filter') == 'allocated' ? 'selected' : '' }}>Allocated</option>
+                    <option value="unallocated" {{ request('filter', 'unallocated') == 'unallocated' ? 'selected' : '' }}>Unallocated</option>
+                    <option value="zero-payment" {{ request('filter') == 'zero-payment' ? 'selected' : '' }}>Payment = 0</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <input type="date" name="from" class="form-control form-control-sm" value="{{ request('from') }}" placeholder="From">
+            </div>
+            <div class="col-auto">
+                <input type="date" name="to" class="form-control form-control-sm" value="{{ request('to') }}" placeholder="To">
+            </div>
+            <div class="col-auto">
+                <input type="text" name="customer" class="form-control form-control-sm" value="{{ request('customer') }}" placeholder="Customer name or corporate">
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-sm btn-primary">Filter</button>
+            </div>
+        </form>
     </div>
 
     <div class="card card-danger">
@@ -106,38 +124,69 @@
                     </thead>
                     <tbody>
                         @foreach($payments as $payment)
-                            <tr data-allocated="{{ $payment->receipts->first()->allocated_amount }}"
-                                data-remaining="{{ $payment->receipts->first()->remaining_amount }}"
+                            @php $receipt = $payment->receipts->first(); @endphp
+                            <tr data-allocated="{{ $receipt ? $receipt->allocated_amount : 0 }}"
+                                data-remaining="{{ $receipt ? $receipt->remaining_amount : 0 }}"
                                 data-payment="{{ $payment->payment_amount }}">
                                 <td>{{ $payment->id }}</td>
-                                <td>{{ $payment->receipts->first()->receipt_number }}</td>
+                                <td>{{ $receipt ? $receipt->receipt_number : '-' }}</td>
                                 <td>{{ $payment->corporate_name ?: $payment->customer_full_name }}</td>
                                 <td>{{ \Carbon\Carbon::parse($payment->payment_date)->format('d-m-Y') }}</td>
                                 <td>{{ number_format($payment->payment_amount, 2) }}</td>
-                                <td>{{ number_format($payment->receipts->first()->allocated_amount, 2) }}</td>
-                                <td>{{ number_format($payment->receipts->first()->remaining_amount, 2) }}</td>
+                                <td>{{ number_format($receipt ? $receipt->allocated_amount : 0, 2) }}</td>
+                                <td>{{ number_format($receipt ? $receipt->remaining_amount : $payment->payment_amount, 2) }}</td>
                                 <td>
-                                    @if($payment->receipts->first()->remaining_amount == 0)
+                                    @if($receipt && $receipt->remaining_amount == 0)
                                         <!-- Show Unallocate button only -->
-                                        <form action="{{ route('allocations.unallocateAll', $payment->id) }}" method="POST" style="display:inline;">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to unallocate all policies for this payment?');">Unallocate</button>
-                                        </form>
-                                    @elseif($payment->receipts->first()->allocated_amount == 0)
+                                        @can('unallocate', $payment)
+                                            <form action="{{ route('allocations.unallocateAll', $payment->id) }}" method="POST" style="display:inline;">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to unallocate all policies for this payment?');" title="Unallocate all policies" aria-label="Unallocate all policies for payment {{ $payment->id }}">
+                                                    <i class="fas fa-undo" aria-hidden="true" style="font-size:0.85rem; margin-right:6px;"></i> Unallocate
+                                                </button>
+                                            </form>
+                                        @else
+                                            <button class="btn btn-danger btn-sm" disabled title="You do not have permission to unallocate" aria-label="Unallocate disabled">Unallocate</button>
+                                        @endcan
+                                    @elseif($receipt && $receipt->allocated_amount == 0)
                                         <!-- Show Allocate button only -->
-                                        <a href="{{ route('payments.allocate', $payment->id) }}" class="btn btn-warning btn-sm">Allocate</a>
+                                        @can('allocate', $payment)
+                                            <a href="{{ route('payments.allocate', $payment->id) }}" class="btn btn-warning btn-sm" title="Allocate payment to policies" aria-label="Allocate payment {{ $payment->id }}">
+                                                <i class="fas fa-hand-holding" aria-hidden="true" style="font-size:0.85rem; margin-right:6px;"></i> Allocate
+                                            </a>
+                                        @else
+                                            <button class="btn btn-warning btn-sm" disabled title="You do not have permission to allocate" aria-label="Allocate disabled">Allocate</button>
+                                        @endcan
                                     @else
                                         <!-- Show both Allocate and Unallocate buttons -->
-                                        <a href="{{ route('payments.allocate', $payment->id) }}" class="btn btn-warning btn-sm">Allocate</a>
-                                        <form action="{{ route('allocations.unallocateAll', $payment->id) }}" method="POST" style="display:inline;">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to unallocate all policies for this payment?');">Unallocate</button>
-                                        </form>
+                                        @can('allocate', $payment)
+                                            <a href="{{ route('payments.allocate', $payment->id) }}" class="btn btn-warning btn-sm" title="Allocate payment to policies" aria-label="Allocate payment {{ $payment->id }}">Allocate</a>
+                                        @else
+                                            <button class="btn btn-warning btn-sm" disabled title="You do not have permission to allocate" aria-label="Allocate disabled">Allocate</button>
+                                        @endcan
+
+                                        @can('unallocate', $payment)
+                                            <form action="{{ route('allocations.unallocateAll', $payment->id) }}" method="POST" style="display:inline;">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to unallocate all policies for this payment?');" title="Unallocate all policies" aria-label="Unallocate all policies for payment {{ $payment->id }}">
+                                                    <i class="fas fa-undo" aria-hidden="true" style="font-size:0.85rem; margin-right:6px;"></i> Unallocate
+                                                </button>
+                                            </form>
+                                        @else
+                                            <button class="btn btn-danger btn-sm" disabled title="You do not have permission to unallocate" aria-label="Unallocate disabled">Unallocate</button>
+                                        @endcan
                                     @endif
+
                                     <!-- Add Print Receipt Button -->
-                                    <a href="{{ route('payments.printReceipt', $payment->id) }}" class="btn btn-success btn-sm">Print Receipt</a>
+                                    @can('print', $payment)
+                                        <a href="{{ route('payments.printReceipt', $payment->id) }}" class="btn btn-success btn-sm" title="Print receipt" aria-label="Print receipt for payment {{ $payment->id }}">
+                                            <i class="fas fa-print" aria-hidden="true" style="font-size:0.85rem; margin-right:6px;"></i> Print
+                                        </a>
+                                    @else
+                                        <button class="btn btn-success btn-sm" disabled title="You do not have permission to print receipts" aria-label="Print disabled">Print Receipt</button>
+                                    @endcan
                                 </td>
                             </tr>
                         @endforeach
@@ -155,36 +204,16 @@
                         </tr>
                     </tfoot>
                 </table>
+                <div class="mt-3 d-flex justify-content-center">
+                    {{ $payments->onEachSide(1)->links('pagination::bootstrap-5') }}
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    function filterTable() {
-        var filterValue = document.querySelector('input[name="filter"]:checked').value;
-        var rows = document.querySelectorAll('#paymentsTable tbody tr');
-
-        rows.forEach(function(row) {
-            var allocatedAmount = parseFloat(row.getAttribute('data-allocated'));
-            var remainingAmount = parseFloat(row.getAttribute('data-remaining'));
-            var paymentAmount = parseFloat(row.getAttribute('data-payment'));
-
-            if (filterValue === 'allocated') {
-                row.style.display = remainingAmount === 0 ? '' : 'none';
-            } else if (filterValue === 'unallocated') {
-                row.style.display = allocatedAmount === 0 ? '' : 'none';
-            } else if (filterValue === 'zero-payment') {
-                row.style.display = paymentAmount === 0 ? '' : 'none';
-            } else {
-                row.style.display = (allocatedAmount > 0 && remainingAmount > 0) ? '' : 'none';
-            }
-        });
-    }
-
-    // Initial filter on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        filterTable();
-    });
+    // Client-side filtering kept for quick UI but server-side filters have been added.
+    // The server-side form submits GET parameters; client-side filtering remains optional.
 </script>
 @endsection

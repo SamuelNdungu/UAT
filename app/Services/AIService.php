@@ -70,14 +70,143 @@ class AIService
      * Generates a reply using the remote API with Ollama fallbacks (called by /ai/ask).
      * This method supports multi-step function calling.
      */
+    /**
+     * Handles function calling with Ollama
+     */
+    protected function handleOllamaFunctionCalling(string $prompt, array $history = []): array
+    {
+        $ollamaEndpoint = env('AI_SERVICE_URL', 'http://127.0.0.1:11434/api/chat');
+        $ollamaModel = env('AI_MODEL', 'tinyllama');
+        
+        try {
+            // Prepare the messages for the chat API
+            $messages = [
+                ['role' => 'system', 'content' => 'You are a helpful assistant that can call functions. ' .
+                    'If the user asks you to do something that requires calling a function, ' .
+                    'respond with a JSON object containing the function name and arguments.'],
+                ['role' => 'user', 'content' => $prompt]
+            ];
+            
+            // Add conversation history if provided
+            if (!empty($history)) {
+                array_unshift($messages, ...$history);
+            }
+            
+            Log::info('AIService: Sending request to Ollama chat API', [
+                'model' => $ollamaModel,
+                'message_count' => count($messages)
+            ]);
+            
+            $response = Http::timeout(60)
+                ->post($ollamaEndpoint, [
+                    'model' => $ollamaModel,
+                    'messages' => $messages,
+                    'stream' => false,
+                    'options' => [
+                        'temperature' => 0.7,
+                    ]
+                ]);
+
+            if ($response->successful()) {
+                $result = $response->json();
+                
+                // Extract the response content
+                $content = $result['message']['content'] ?? '';
+                
+                // Try to parse as JSON (in case it's a function call)
+                $jsonStart = strpos($content, '{');
+                $jsonEnd = strrpos($content, '}');
+                
+                if ($jsonStart !== false && $jsonEnd !== false) {
+                    $jsonStr = substr($content, $jsonStart, $jsonEnd - $jsonStart + 1);
+                    $json = json_decode($jsonStr, true);
+                    
+                    if (json_last_error() === JSON_ERROR_NONE && isset($json['function'])) {
+                        // This is a function call
+                        return [
+                            'function' => $json['function'],
+                            'args' => $json['args'] ?? [],
+                            'method' => 'ollama',
+                            'raw' => $result
+                        ];
+                    }
+                }
+                
+                // Regular text response
+                return [
+                    'reply' => $content,
+                    'method' => 'ollama',
+                    'raw' => $result
+                ];
+            }
+            
+            Log::warning('AIService: Ollama chat API returned non-success status', [
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('AIService: Ollama chat API error', ['error' => $e->getMessage()]);
+        }
+        
+        return [];
+    }
+    
     public function generate(string $prompt): array
     {
         // 1. Time Budgeting and Configuration
         $startTime = microtime(true);
         $timeLimit = (int) env('AI_REMOTE_TIMEOUT', 30);
-        $remoteApiKey = env('GEMINI_API_KEY');
         
-        // --- 2. Try Remote API (FUNCTION CALLING LOGIC) ---
+        // --- 2. First try Ollama local service ---
+        $ollamaResponse = $this->handleOllamaFunctionCalling($prompt);
+        
+        // If we got a valid response from Ollama, check if it's a function call
+        if (!empty($ollamaResponse)) {
+            // If it's a function call, execute it
+            if (isset($ollamaResponse['function']) && method_exists($this, $ollamaResponse['function'])) {
+                try {
+                    $functionName = $ollamaResponse['function'];
+                    $args = $ollamaResponse['args'] ?? [];
+                    
+                    Log::info('AIService: Executing function from Ollama', [
+                        'function' => $functionName,
+                        'args' => $args
+                    ]);
+                    
+                    // Call the function with the provided arguments
+                    $result = call_user_func_array([$this, $functionName], [$args]);
+                    
+                    // If the function returns a string, wrap it in an array
+                    if (is_string($result)) {
+                        $result = ['reply' => $result];
+                    }
+                    
+                    // Add the method info
+                    $result['method'] = 'ollama';
+                    
+                    return $result;
+                    
+                } catch (\Exception $e) {
+                    Log::error('AIService: Error executing function from Ollama', [
+                        'function' => $ollamaResponse['function'] ?? 'unknown',
+                        'error' => $e->getMessage()
+                    ]);
+                    
+                    return [
+                        'reply' => 'Error executing function: ' . $e->getMessage(),
+                        'method' => 'ollama',
+                        'error' => true
+                    ];
+                }
+            }
+            
+            // If it's a regular response, return it
+            return $ollamaResponse;
+        }
+        
+        // --- 3. Fall back to Gemini if available ---
+        $remoteApiKey = env('GEMINI_API_KEY');
         if ($remoteApiKey) {
             $remoteModel = 'gemini-2.5-flash';
             $remoteEndpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' . $remoteModel . ':generateContent';

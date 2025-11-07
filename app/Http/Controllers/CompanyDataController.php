@@ -53,18 +53,24 @@ class CompanyDataController extends Controller
         }
 
         // Handle logo upload separately
-        if ($request->hasFile('logo')) {
-            $file = $request->file('logo');
-            $path = $file->store('company_logos', 'public');
+       // In CompanyDataController update method
+if ($request->hasFile('logo')) {
+    $file = $request->file('logo');
+    
+    // Generate a clean filename
+    $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+    $cleanName = \Illuminate\Support\Str::slug($originalName) . '.' . $file->getClientOriginalExtension();
+    
+    $path = $file->storeAs('company_logos', $cleanName, 'public');
 
-            // delete previous logo if exists
-            if ($company->logo_path && \Storage::disk('public')->exists($company->logo_path)) {
-                \Storage::disk('public')->delete($company->logo_path);
-            }
+    // Delete previous logo if exists
+    if ($company->logo_path && \Storage::disk('public')->exists($company->logo_path)) {
+        \Storage::disk('public')->delete($company->logo_path);
+    }
 
-            $company->logo_path = $path;
-            $company->save();
-        }
+    $company->logo_path = $path;
+    $company->save();
+}
 
         return redirect()->route('settings.company-data.show')
             ->with('success', 'Company data saved successfully.');
